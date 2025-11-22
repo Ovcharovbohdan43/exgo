@@ -12,6 +12,10 @@ type Props = {
   onPress?: () => void;
   showLabels?: boolean;
   style?: ViewStyle;
+  centerLabel?: string; // Optional label to display in the center
+  centerLabelColor?: string; // Optional color for center label
+  centerSubLabel?: string; // Optional sub-label to display below center label
+  centerSubLabelColor?: string; // Optional color for sub-label
 };
 
 const DonutChart: React.FC<Props> = ({
@@ -23,6 +27,10 @@ const DonutChart: React.FC<Props> = ({
   onPress,
   showLabels = false,
   style,
+  centerLabel,
+  centerLabelColor,
+  centerSubLabel,
+  centerSubLabelColor,
 }) => {
   const theme = useThemeStyles();
   const radius = (size - strokeWidth) / 2;
@@ -146,8 +154,36 @@ const DonutChart: React.FC<Props> = ({
           return circle;
         })}
       </Svg>
-      {showLabels && (
-        <View style={styles.labels}>
+      <View style={styles.labels}>
+        {centerLabel ? (
+          <>
+            <Text
+              style={[
+                styles.centerLabel,
+                {
+                  color: centerLabelColor || theme.colors.textPrimary,
+                  fontSize: (theme.typography.fontSize.display || 32) * 0.8, // 20% smaller
+                  fontWeight: theme.typography.fontWeight.bold,
+                },
+              ]}
+            >
+              {centerLabel}
+            </Text>
+            {centerSubLabel && (
+              <Text
+                style={[
+                  styles.centerSubLabel,
+                  {
+                    color: centerSubLabelColor || theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.sm,
+                  },
+                ]}
+              >
+                {centerSubLabel}
+              </Text>
+            )}
+          </>
+        ) : showLabels ? (
           <Text
             style={[
               styles.label,
@@ -159,8 +195,8 @@ const DonutChart: React.FC<Props> = ({
           >
             {remaining < 0 ? 'Over budget' : 'Remaining'}
           </Text>
-        </View>
-      )}
+        ) : null}
+      </View>
     </View>
   );
 
@@ -190,6 +226,13 @@ const styles = StyleSheet.create({
   },
   label: {
     textAlign: 'center',
+  },
+  centerLabel: {
+    textAlign: 'center',
+  },
+  centerSubLabel: {
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
 

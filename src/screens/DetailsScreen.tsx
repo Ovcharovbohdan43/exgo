@@ -38,17 +38,6 @@ const DetailsScreen: React.FC = () => {
           variant="overline"
           style={styles.sectionHeader}
         />
-        <Text
-          style={[
-            styles.subtitle,
-            {
-              color: theme.colors.textSecondary,
-              fontSize: theme.typography.fontSize.md,
-            },
-          ]}
-        >
-          Remaining {formatCurrency(totals.remaining, settings.currency)}
-        </Text>
       </View>
 
       {/* Donut Chart Section */}
@@ -59,6 +48,10 @@ const DetailsScreen: React.FC = () => {
           remaining={totals.chartRemaining}
           size={240}
           strokeWidth={24}
+          centerLabel={formatCurrency(totals.remaining, settings.currency)}
+          centerLabelColor={totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary}
+          centerSubLabel={totals.remaining < 0 ? 'Over budget' : 'Remaining'}
+          centerSubLabelColor={theme.colors.textSecondary}
         />
       </View>
 
@@ -157,9 +150,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 8,
-  },
-  subtitle: {
-    marginTop: 4,
   },
   chartSection: {
     marginBottom: 32,

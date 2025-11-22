@@ -119,29 +119,6 @@ const HomeScreen: React.FC = () => {
             variant="overline"
             style={styles.headerTitle}
           />
-          <Text
-            style={[
-              styles.balance,
-              {
-                color: remainingColor,
-                fontSize: theme.typography.fontSize.display,
-                fontWeight: theme.typography.fontWeight.bold,
-              },
-            ]}
-          >
-            {formatCurrency(totals.remaining, settings.currency)}
-          </Text>
-          <Text
-            style={[
-              styles.caption,
-              {
-                color: theme.colors.textSecondary,
-                fontSize: theme.typography.fontSize.md,
-              },
-            ]}
-          >
-            Of {formatCurrency(totals.income, settings.currency)} total income
-          </Text>
         </View>
 
         {/* Donut Chart Section */}
@@ -154,6 +131,10 @@ const HomeScreen: React.FC = () => {
             strokeWidth={20}
             onPress={handleChartPress}
             showLabels={false}
+            centerLabel={formatCurrency(totals.remaining, settings.currency)}
+            centerLabelColor={remainingColor}
+            centerSubLabel={`Of ${formatCurrency(totals.income, settings.currency)} total`}
+            centerSubLabelColor={theme.colors.textSecondary}
           />
           {totals.remaining < 0 && (
             <Text
@@ -271,14 +252,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginBottom: 8,
-  },
-  balance: {
-    marginVertical: 8,
-    textAlign: 'center',
-  },
-  caption: {
-    textAlign: 'center',
-    marginTop: 4,
   },
   chartSection: {
     alignItems: 'center',

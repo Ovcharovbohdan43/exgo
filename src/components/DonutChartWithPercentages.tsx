@@ -11,6 +11,10 @@ type Props = {
   size?: number;
   strokeWidth?: number;
   style?: ViewStyle;
+  centerLabel?: string; // Optional label to display in the center
+  centerLabelColor?: string; // Optional color for center label
+  centerSubLabel?: string; // Optional sub-label to display below center label
+  centerSubLabelColor?: string; // Optional color for sub-label
 };
 
 /**
@@ -24,6 +28,10 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
   size = 240,
   strokeWidth = 24,
   style,
+  centerLabel,
+  centerLabelColor,
+  centerSubLabel,
+  centerSubLabelColor,
 }) => {
   const theme = useThemeStyles();
   const clampedRemaining = Math.max(remaining, 0);
@@ -46,6 +54,10 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
         size={size}
         strokeWidth={strokeWidth}
         showLabels={false}
+        centerLabel={centerLabel}
+        centerLabelColor={centerLabelColor}
+        centerSubLabel={centerSubLabel}
+        centerSubLabelColor={centerSubLabelColor}
       />
       
       <View style={styles.legend}>
