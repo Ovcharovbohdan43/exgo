@@ -22,9 +22,17 @@ const SettingsScreen: React.FC = () => {
         text: 'Reset',
         style: 'destructive',
         onPress: async () => {
-          await resetStorage();
-          await updateSettings({ currency: 'USD', monthlyIncome: 0, isOnboarded: false });
-          await resetTransactions();
+          try {
+            // Clear storage first
+            await resetStorage();
+            // Reset both providers to defaults
+            await updateSettings({ currency: 'USD', monthlyIncome: 0, isOnboarded: false });
+            await resetTransactions();
+            Alert.alert('Success', 'All data has been reset.');
+          } catch (error) {
+            Alert.alert('Error', 'Failed to reset data. Please try again.');
+            console.error('[SettingsScreen] Reset error:', error);
+          }
         },
       },
     ]);

@@ -1,29 +1,50 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { calculateTotals } from '../modules/calculations';
-import { formatCurrency } from '../utils/format';
+import { ScreenContainer, SectionHeader } from '../components/layout';
+import DonutChart from '../components/DonutChart';
+import FloatingActionButton from '../components/FloatingActionButton';
+import { SummaryCard } from '../components/SummaryCard';
+import { LastTransactionPreview } from '../components/LastTransactionPreview';
+import { AddTransactionModal } from '../components/AddTransaction';
+import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useTransactions } from '../state/TransactionsProvider';
+import { useMonthlyTotals, useLastTransaction, useCurrentMonthTransactions } from '../state/selectors';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { EXPENSE_CATEGORIES } from '../constants/categories';
+import { formatCurrency } from '../utils/format';
 import { clearAllData } from '../utils/devReset';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC = () => {
+  const theme = useThemeStyles();
   const navigation = useNavigation<Nav>();
   const { settings } = useSettings();
-  const { transactions, addTransaction } = useTransactions();
-  const totals = calculateTotals(transactions, settings.monthlyIncome);
+  const { transactions } = useTransactions();
+  const currentMonthTransactions = useCurrentMonthTransactions(transactions);
+  const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
+  const lastTransaction = useLastTransaction(currentMonthTransactions);
+  
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const handleAddSample = async () => {
-    await addTransaction({
-      amount: 12,
-      type: 'expense',
-      category: EXPENSE_CATEGORIES[0],
-    });
+  // Debug: Log currency on mount and when settings change
+  React.useEffect(() => {
+    console.log('[HomeScreen] Current currency:', settings.currency);
+    console.log('[HomeScreen] Current settings:', settings);
+  }, [settings.currency, settings]);
+
+  const handleChartPress = () => {
+    navigation.navigate('Details');
+  };
+
+  const handleFABPress = () => {
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
   };
 
   const handleResetOnboarding = async () => {
@@ -51,82 +72,206 @@ const HomeScreen: React.FC = () => {
     );
   };
 
+  const remainingColor = totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.overline}>Monthly balance</Text>
-      <Text style={styles.balance}>{formatCurrency(totals.remaining, settings.currency)}</Text>
-      <Text style={styles.caption}>Of {formatCurrency(totals.income, settings.currency)}</Text>
+    <ScreenContainer scrollable>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 100 }, // Space for FAB
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Section */}
+        <View style={styles.header}>
+          <SectionHeader
+            title="Monthly balance"
+            variant="overline"
+            style={styles.headerTitle}
+          />
+          <Text
+            style={[
+              styles.balance,
+              {
+                color: remainingColor,
+                fontSize: theme.typography.fontSize.display,
+                fontWeight: theme.typography.fontWeight.bold,
+              },
+            ]}
+          >
+            {formatCurrency(totals.remaining, settings.currency)}
+          </Text>
+          <Text
+            style={[
+              styles.caption,
+              {
+                color: theme.colors.textSecondary,
+                fontSize: theme.typography.fontSize.md,
+              },
+            ]}
+          >
+            Of {formatCurrency(totals.income, settings.currency)} monthly income
+          </Text>
+        </View>
 
-      <View style={styles.row}>
-        <Stat label="Spent" value={formatCurrency(totals.expenses, settings.currency)} />
-        <Stat label="Saved" value={formatCurrency(totals.saved, settings.currency)} />
+        {/* Donut Chart Section */}
+        <View style={styles.chartSection}>
+          <DonutChart
+            spent={totals.expenses}
+            saved={totals.saved}
+            remaining={totals.chartRemaining}
+            size={200}
+            strokeWidth={20}
+            onPress={handleChartPress}
+            showLabels={false}
+          />
+          {totals.remaining < 0 && (
+            <Text
+              style={[
+                styles.overBudgetWarning,
+                {
+                  color: theme.colors.danger,
+                  fontSize: theme.typography.fontSize.sm,
+                  fontWeight: theme.typography.fontWeight.medium,
+                },
+              ]}
+            >
+              Over budget by {formatCurrency(Math.abs(totals.remaining), settings.currency)}
+            </Text>
+          )}
+        </View>
+
+        {/* Summary Stats Section */}
+        <View style={styles.summarySection}>
+          <SectionHeader
+            title="Summary"
+            variant="overline"
+            style={styles.sectionHeader}
+          />
+          <View style={styles.summaryGrid}>
+            <SummaryCard
+              label="Remaining"
+              value={formatCurrency(totals.remaining, settings.currency)}
+              variant={totals.remaining < 0 ? 'negative' : totals.remaining > 0 ? 'positive' : 'neutral'}
+              style={styles.summaryCard}
+            />
+            <SummaryCard
+              label="Spent"
+              value={formatCurrency(totals.expenses, settings.currency)}
+              variant="negative"
+              style={styles.summaryCard}
+            />
+            <SummaryCard
+              label="Saved"
+              value={formatCurrency(totals.saved, settings.currency)}
+              variant="positive"
+              style={styles.summaryCard}
+            />
+          </View>
+        </View>
+
+        {/* Last Transaction Section */}
+        <View style={styles.lastTransactionSection}>
+          <SectionHeader
+            title="Last Transaction"
+            variant="overline"
+            style={styles.sectionHeader}
+          />
+          <LastTransactionPreview
+            transaction={lastTransaction}
+            currency={settings.currency}
+          />
+        </View>
+
+        {/* Development Reset Button - Remove in production */}
+        {__DEV__ && (
+          <View style={styles.devSection}>
+            <FloatingActionButton
+              onPress={handleResetOnboarding}
+              size={48}
+              style={{
+                ...styles.devButton,
+                backgroundColor: theme.colors.danger,
+              }}
+            />
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <FloatingActionButton onPress={handleFABPress} />
       </View>
 
-      <View style={styles.actions}>
-        <Button title="Add sample expense" onPress={handleAddSample} />
-        <Button title="Spending breakdown" onPress={() => navigation.navigate('Details')} />
-        <Button title="Settings" onPress={() => navigation.navigate('Settings')} />
-        {/* Development only - Remove in production */}
-        <Button
-          title="🔄 Reset Onboarding (Dev)"
-          onPress={handleResetOnboarding}
-          color="#ef4444"
-        />
-      </View>
-    </View>
+      {/* Add Transaction Modal */}
+      <AddTransactionModal
+        visible={modalVisible}
+        onClose={handleCloseModal}
+      />
+    </ScreenContainer>
   );
 };
 
-const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <View style={styles.stat}>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statValue}>{value}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  scrollContent: {
     padding: 24,
-    backgroundColor: '#ffffff',
-    gap: 12,
+    gap: 24,
   },
-  overline: {
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    fontSize: 12,
-    color: '#666',
+  header: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  headerTitle: {
+    marginBottom: 8,
   },
   balance: {
-    fontSize: 32,
-    fontWeight: '700',
+    marginVertical: 8,
+    textAlign: 'center',
   },
   caption: {
-    fontSize: 14,
-    color: '#777',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
+  chartSection: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  overBudgetWarning: {
     marginTop: 12,
+    textAlign: 'center',
   },
-  stat: {
+  summarySection: {
+    marginTop: 8,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  summaryCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#f6f7fb',
+    minWidth: '30%',
   },
-  statLabel: {
-    fontSize: 14,
-    color: '#555',
+  lastTransactionSection: {
+    marginTop: 8,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  actions: {
-    gap: 8,
+  devSection: {
+    alignItems: 'center',
     marginTop: 16,
+  },
+  devButton: {
+    marginTop: 8,
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

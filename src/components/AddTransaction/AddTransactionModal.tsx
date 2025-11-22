@@ -1,0 +1,602 @@
+import React, { useState, useCallback } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { useThemeStyles } from '../../theme/ThemeProvider';
+import { useSettings } from '../../state/SettingsProvider';
+import { useTransactions } from '../../state/TransactionsProvider';
+import { TransactionType } from '../../types';
+import { AmountInputStep } from './AmountInputStep';
+import { CategorySelectionStep } from './CategorySelectionStep';
+import { ConfirmStep } from './ConfirmStep';
+
+type AddTransactionModalProps = {
+  visible: boolean;
+  initialType?: TransactionType;
+  onClose: () => void;
+};
+
+type Step = 'type' | 'amount' | 'category' | 'confirm';
+
+/**
+ * AddTransactionModal - Full modal flow for adding a transaction
+ * Steps: Type selection → Amount input → Category selection → Confirm
+ */
+export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
+  visible,
+  initialType,
+  onClose,
+}) => {
+  const theme = useThemeStyles();
+  const { settings } = useSettings();
+  const { addTransaction } = useTransactions();
+
+  // Debug: Log currency when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      console.log('[AddTransactionModal] Current currency:', settings.currency);
+    }
+  }, [visible, settings.currency]);
+
+  const [step, setStep] = useState<Step>(initialType ? 'amount' : 'type');
+  const [type, setType] = useState<TransactionType | null>(initialType || null);
+  const [amount, setAmount] = useState<string>('');
+  const [category, setCategory] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset state when modal opens/closes
+  React.useEffect(() => {
+    if (visible) {
+      setStep(initialType ? 'amount' : 'type');
+      setType(initialType || null);
+      setAmount('');
+      setCategory(null);
+      setError(null);
+      setIsSaving(false);
+    }
+  }, [visible, initialType]);
+
+  const handleTypeSelect = useCallback((selectedType: TransactionType) => {
+    setType(selectedType);
+    setError(null);
+    
+    // Auto-select category for income and saved
+    if (selectedType === 'income') {
+      setCategory('Income');
+      setStep('amount');
+    } else if (selectedType === 'saved') {
+      setCategory('Savings');
+      setStep('amount');
+    } else {
+      setStep('amount');
+    }
+  }, []);
+
+  const handleAmountNext = useCallback(() => {
+    const numAmount = parseFloat(amount);
+    
+    if (!amount.trim() || isNaN(numAmount) || numAmount <= 0) {
+      setError('Please enter a valid positive amount');
+      return;
+    }
+
+    setError(null);
+    
+    // If category is already set (income/saved), go to confirm
+    if (type === 'income' || (type === 'saved' && category)) {
+      setStep('confirm');
+    } else {
+      setStep('category');
+    }
+  }, [amount, type, category]);
+
+  const handleCategoryNext = useCallback(() => {
+    if (!category) {
+      setError('Please select a category');
+      return;
+    }
+
+    setError(null);
+    setStep('confirm');
+  }, [category]);
+
+  const handleConfirm = useCallback(async () => {
+    if (!type || !amount || !category) {
+      setError('Please complete all fields');
+      return;
+    }
+
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      setError('Invalid amount');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      await addTransaction({
+        type,
+        amount: numAmount,
+        category,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Show success message
+      const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';
+      Alert.alert('Success', `${typeLabel} added successfully!`, [
+        {
+          text: 'OK',
+          onPress: () => {
+            onClose();
+          },
+        },
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save transaction');
+      setIsSaving(false);
+    }
+  }, [type, amount, category, addTransaction, onClose]);
+
+  const handleBack = useCallback(() => {
+    setError(null);
+    if (step === 'confirm') {
+      if (type === 'income' || (type === 'saved' && category)) {
+        setStep('amount');
+      } else {
+        setStep('category');
+      }
+    } else if (step === 'category') {
+      setStep('amount');
+    } else if (step === 'amount') {
+      if (initialType) {
+        onClose();
+      } else {
+        setStep('type');
+      }
+    } else {
+      onClose();
+    }
+  }, [step, type, category, initialType, onClose]);
+
+  const handleClose = useCallback(() => {
+    if (isSaving) return;
+    
+    Alert.alert(
+      'Cancel Transaction?',
+      'Are you sure you want to cancel? All entered data will be lost.',
+      [
+        { text: 'Continue Editing', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'destructive',
+          onPress: onClose,
+        },
+      ],
+    );
+  }, [isSaving, onClose]);
+
+  const renderStep = () => {
+    if (step === 'type') {
+      return (
+        <View style={styles.typeContainer}>
+          <Text
+            style={{
+              color: theme.colors.textPrimary,
+              fontSize: theme.typography.fontSize.lg,
+              fontWeight: theme.typography.fontWeight.semibold,
+              marginBottom: theme.spacing.lg,
+              textAlign: 'center',
+            }}
+          >
+            Select Transaction Type
+          </Text>
+          {[
+            { type: 'expense' as TransactionType, label: 'Expense', emoji: '💸', color: theme.colors.danger },
+            { type: 'income' as TransactionType, label: 'Income', emoji: '💰', color: theme.colors.positive },
+            { type: 'saved' as TransactionType, label: 'Saved', emoji: '💾', color: theme.colors.accent },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.type}
+              onPress={() => handleTypeSelect(item.type)}
+              activeOpacity={0.7}
+              style={styles.typeButton}
+            >
+              <View
+                style={[
+                  styles.typeCard,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: item.color,
+                  },
+                ]}
+              >
+                <Text style={styles.typeEmoji}>{item.emoji}</Text>
+                <Text
+                  style={[
+                    styles.typeLabel,
+                    {
+                      color: theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    }
+
+    if (step === 'amount') {
+      return (
+        <AmountInputStep
+          amount={amount}
+          currency={settings.currency}
+          onChange={setAmount}
+          error={error}
+        />
+      );
+    }
+
+    if (step === 'category' && type) {
+      return (
+        <CategorySelectionStep
+          type={type}
+          selectedCategory={category}
+          onSelect={setCategory}
+        />
+      );
+    }
+
+    if (step === 'confirm' && type && amount && category) {
+      return (
+        <ConfirmStep
+          type={type}
+          amount={parseFloat(amount)}
+          category={category}
+          currency={settings.currency}
+          createdAt={new Date().toISOString()}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const canGoNext = () => {
+    if (step === 'amount') {
+      const numAmount = parseFloat(amount);
+      return !isNaN(numAmount) && numAmount > 0;
+    }
+    if (step === 'category') {
+      return !!category;
+    }
+    if (step === 'confirm') {
+      return !isSaving && !!type && !!amount && !!category;
+    }
+    return false;
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={handleClose}
+    >
+      <View style={styles.backdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.colors.card,
+                borderTopLeftRadius: theme.radii.lg,
+                borderTopRightRadius: theme.radii.lg,
+              },
+            ]}
+          >
+          <View style={styles.handle} />
+          
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={handleBack}
+              disabled={isSaving}
+              style={styles.backButton}
+            >
+              <Text
+                style={[
+                  styles.backButtonText,
+                  {
+                    color: theme.colors.accent,
+                    fontSize: theme.typography.fontSize.md,
+                  },
+                ]}
+              >
+                {step === 'type' ? 'Cancel' : 'Back'}
+              </Text>
+            </TouchableOpacity>
+            
+            <Text
+              style={[
+                styles.headerTitle,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: theme.typography.fontSize.lg,
+                  fontWeight: theme.typography.fontWeight.semibold,
+                },
+              ]}
+            >
+              Add Transaction
+            </Text>
+            
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <View style={styles.stepIndicator}>
+            {['type', 'amount', 'category', 'confirm'].map((s, index) => {
+              const stepIndex = ['type', 'amount', 'category', 'confirm'].indexOf(step);
+              const isActive = index <= stepIndex;
+              return (
+                <View
+                  key={s}
+                  style={[
+                    styles.stepDot,
+                    {
+                      backgroundColor: isActive ? theme.colors.accent : theme.colors.border,
+                    },
+                  ]}
+                />
+              );
+            })}
+          </View>
+
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {renderStep()}
+          </ScrollView>
+
+          {error && (
+            <Text
+              style={[
+                styles.errorText,
+                {
+                  color: theme.colors.danger,
+                  fontSize: theme.typography.fontSize.sm,
+                },
+              ]}
+            >
+              {error}
+            </Text>
+          )}
+
+          <View style={styles.footer}>
+            {step !== 'type' && step !== 'confirm' && (
+              <TouchableOpacity
+                onPress={handleAmountNext}
+                disabled={!canGoNext() || isSaving}
+                style={[
+                  styles.nextButton,
+                  {
+                    backgroundColor: canGoNext() && !isSaving 
+                      ? theme.colors.accent 
+                      : theme.colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nextButtonText,
+                    {
+                      color: canGoNext() && !isSaving 
+                        ? theme.colors.background 
+                        : theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  Next
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {step === 'category' && (
+              <TouchableOpacity
+                onPress={handleCategoryNext}
+                disabled={!canGoNext() || isSaving}
+                style={[
+                  styles.nextButton,
+                  {
+                    backgroundColor: canGoNext() && !isSaving 
+                      ? theme.colors.accent 
+                      : theme.colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nextButtonText,
+                    {
+                      color: canGoNext() && !isSaving 
+                        ? theme.colors.background 
+                        : theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  Next
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {step === 'confirm' && (
+              <TouchableOpacity
+                onPress={handleConfirm}
+                disabled={!canGoNext() || isSaving}
+                style={[
+                  styles.confirmButton,
+                  {
+                    backgroundColor: canGoNext() && !isSaving 
+                      ? theme.colors.positive 
+                      : theme.colors.border,
+                  },
+                ]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color={theme.colors.background} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.confirmButtonText,
+                      {
+                        color: canGoNext() && !isSaving 
+                          ? theme.colors.background 
+                          : theme.colors.textMuted,
+                        fontSize: theme.typography.fontSize.md,
+                        fontWeight: theme.typography.fontWeight.semibold,
+                      },
+                    ]}
+                  >
+                    Confirm & Save
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
+  },
+  modalContent: {
+    maxHeight: '95%',
+    paddingBottom: 32,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ccc',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  backButton: {
+    minWidth: 60,
+  },
+  backButtonText: {
+    fontWeight: '500',
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    minWidth: 60,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 24,
+    paddingHorizontal: 24,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  content: {
+    maxHeight: 540, // Increased by 35% from 400 to 540
+  },
+  contentContainer: {
+    paddingHorizontal: 24,
+    minHeight: 200,
+    paddingBottom: 16,
+  },
+  typeContainer: {
+    gap: 12,
+  },
+  typeButton: {
+    marginBottom: 12,
+  },
+  typeCard: {
+    minHeight: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 16,
+  },
+  typeEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  typeLabel: {
+    textAlign: 'center',
+  },
+  footer: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  nextButton: {
+    height: 52,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextButtonText: {
+    textAlign: 'center',
+  },
+  confirmButton: {
+    height: 52,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonText: {
+    textAlign: 'center',
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 24,
+  },
+});
+

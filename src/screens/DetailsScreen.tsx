@@ -2,14 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useTransactions } from '../state/TransactionsProvider';
 import { useSettings } from '../state/SettingsProvider';
-import { categoryBreakdown, calculateTotals } from '../modules/calculations';
+import { useMonthlyTotals, useCategoryBreakdown } from '../state/selectors';
 import { formatCurrency } from '../utils/format';
 
 const DetailsScreen: React.FC = () => {
   const { transactions } = useTransactions();
   const { settings } = useSettings();
-  const breakdown = categoryBreakdown(transactions);
-  const totals = calculateTotals(transactions, settings.monthlyIncome);
+  const breakdown = useCategoryBreakdown(transactions);
+  const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
 
   const data = Object.entries(breakdown);
 

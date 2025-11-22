@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,24 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScreenContainer, Card } from '../components/layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
-import { formatCurrency } from '../utils/format';
+import { RootStackParamList } from '../navigation/RootNavigator';
+import { formatCurrency, getCurrencySymbol } from '../utils/format';
 
 const CURRENCIES = ['USD', 'GBP', 'EUR'] as const;
 type Currency = typeof CURRENCIES[number];
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+type OnboardingNav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
+
 const OnboardingScreen: React.FC = () => {
   const theme = useThemeStyles();
+  const navigation = useNavigation<OnboardingNav>();
   const { settings, updateSettings, setOnboarded } = useSettings();
   const [currency, setCurrency] = useState<Currency>(
     (settings.currency as Currency) || 'USD',
@@ -34,6 +40,34 @@ const OnboardingScreen: React.FC = () => {
   const [tempCurrency, setTempCurrency] = useState<Currency>(currency);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Navigate to Home when onboarding is completed
+  useEffect(() => {
+    if (settings.isOnboarded) {
+      console.log('[OnboardingScreen] Onboarding completed, navigating to Home...');
+      // Delay to ensure state is fully updated and navigation is ready
+      const timer = setTimeout(() => {
+        try {
+          // Use reset to clear navigation stack and navigate to Home
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }],
+          });
+          console.log('[OnboardingScreen] Navigation to Home successful');
+        } catch (error) {
+          console.error('[OnboardingScreen] Navigation error:', error);
+          // Fallback to replace if reset fails
+          try {
+            navigation.replace('Home');
+          } catch (replaceError) {
+            console.error('[OnboardingScreen] Replace also failed:', replaceError);
+          }
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [settings.isOnboarded, navigation]);
 
   const handleCurrencySelect = (selectedCurrency: Currency) => {
     setTempCurrency(selectedCurrency);
@@ -62,12 +96,20 @@ const OnboardingScreen: React.FC = () => {
     setIsSaving(true);
 
     try {
+      const currencyToSave = currency || 'USD';
+      console.log('[OnboardingScreen] Saving settings:', { currency: currencyToSave, monthlyIncome: parsedIncome });
+      // Save all settings including isOnboarded in one call to ensure consistency
       await updateSettings({
-        currency: currency || 'USD',
+        currency: currencyToSave,
         monthlyIncome: parsedIncome,
+        isOnboarded: true,
       });
-      await setOnboarded();
+      console.log('[OnboardingScreen] Settings saved successfully, onboarding completed');
+      // State is updated, useEffect will trigger navigation
+      // Small delay to ensure state propagation
+      setIsSaving(false);
     } catch (err) {
+      console.error('[OnboardingScreen] Error saving settings:', err);
       setError('Failed to save settings. Please try again.');
       setIsSaving(false);
     }
@@ -211,7 +253,7 @@ const OnboardingScreen: React.FC = () => {
                           },
                         ]}
                       >
-                        {currency === 'USD' ? '$' : currency === 'GBP' ? '£' : '€'}
+                        {getCurrencySymbol(currency || 'USD')}
                       </Text>
                       <TextInput
                         placeholder="0"

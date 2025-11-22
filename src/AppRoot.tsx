@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import RootNavigator from './navigation/RootNavigator';
 import { AppProvider } from './state/AppProvider';
 import { ThemeProvider, useThemeStyles } from './theme/ThemeProvider';
@@ -18,12 +18,99 @@ const Loader = () => {
   );
 };
 
-const AppContent = () => {
-  const { settings, hydrated: settingsReady } = useSettings();
-  const { hydrated: transactionsReady } = useTransactions();
-  const ready = settingsReady && transactionsReady;
+const ErrorScreen = ({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) => {
+  const theme = useThemeStyles();
+  return (
+    <View
+      style={[
+        styles.errorContainer,
+        { backgroundColor: theme.colors.background },
+      ]}
+    >
+      <Text
+        style={[
+          styles.errorTitle,
+          { color: theme.colors.textPrimary, fontSize: theme.typography.fontSize.lg },
+        ]}
+      >
+        Failed to load data
+      </Text>
+      <Text
+        style={[
+          styles.errorMessage,
+          {
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSize.md,
+            marginVertical: theme.spacing.md,
+          },
+        ]}
+      >
+        {message}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        style={[
+          styles.retryButton,
+          {
+            backgroundColor: theme.colors.accent,
+            paddingHorizontal: theme.spacing.lg,
+            paddingVertical: theme.spacing.md,
+            borderRadius: theme.radii.md,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.retryButtonText,
+            {
+              color: theme.colors.background,
+              fontSize: theme.typography.fontSize.md,
+              fontWeight: theme.typography.fontWeight.semibold,
+            },
+          ]}
+        >
+          Retry
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
-  if (!ready) return <Loader />;
+const AppContent = () => {
+  const { settings, hydrated: settingsReady, loading: settingsLoading, error: settingsError, retryHydration: retrySettings } = useSettings();
+  const { hydrated: transactionsReady, loading: transactionsLoading, error: transactionsError, retryHydration: retryTransactions } = useTransactions();
+  
+  const ready = settingsReady && transactionsReady;
+  const loading = settingsLoading || transactionsLoading;
+  const error = settingsError || transactionsError;
+
+  const handleRetry = async () => {
+    if (settingsError) await retrySettings();
+    if (transactionsError) await retryTransactions();
+  };
+
+  if (loading && !ready) {
+    return <Loader />;
+  }
+
+  if (error && ready) {
+    // Show error but allow app to continue with defaults
+    console.warn('[AppContent] Error state:', error);
+  }
+
+  if (!ready) {
+    return <Loader />;
+  }
+
+  if (error && !ready) {
+    return <ErrorScreen message={error.message} onRetry={handleRetry} />;
+  }
 
   return (
     <NavigationContainer>
@@ -50,6 +137,25 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  errorMessage: {
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+  },
+  retryButtonText: {
+    textAlign: 'center',
   },
 });
 
