@@ -5,6 +5,7 @@ import { useThemeStyles } from '../theme/ThemeProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate } from '../utils/date';
+import { getCategoryEmoji } from '../utils/categoryEmojis';
 
 type LastTransactionPreviewProps = {
   transaction: Transaction | null;
@@ -85,18 +86,21 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
         >
           {getTypeLabel()}
         </Text>
-        <Text
-          style={[
-            styles.category,
-            {
-              color: theme.colors.textPrimary,
-              fontSize: theme.typography.fontSize.md,
-              fontWeight: theme.typography.fontWeight.semibold,
-            },
-          ]}
-        >
-          {transaction.category || 'Uncategorized'}
-        </Text>
+        <View style={styles.categoryRow}>
+          <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category)}</Text>
+          <Text
+            style={[
+              styles.category,
+              {
+                color: theme.colors.textPrimary,
+                fontSize: theme.typography.fontSize.md,
+                fontWeight: theme.typography.fontWeight.semibold,
+              },
+            ]}
+          >
+            {transaction.category || 'Uncategorized'}
+          </Text>
+        </View>
         <Text
           style={[
             styles.date,
@@ -155,6 +159,14 @@ const styles = StyleSheet.create({
   },
   rightSection: {
     alignItems: 'flex-end',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  categoryEmoji: {
+    fontSize: 18,
   },
   typeLabel: {
     textTransform: 'uppercase',

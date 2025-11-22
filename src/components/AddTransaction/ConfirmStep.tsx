@@ -5,6 +5,7 @@ import { useThemeStyles } from '../../theme/ThemeProvider';
 import { formatCurrency } from '../../utils/format';
 import { formatDate } from '../../utils/date';
 import { TransactionType } from '../../types';
+import { getCategoryEmoji } from '../../utils/categoryEmojis';
 
 type ConfirmStepProps = {
   type: TransactionType;
@@ -142,18 +143,21 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
           >
             Category
           </Text>
-          <Text
-            style={[
-              styles.value,
-              {
-                color: theme.colors.textPrimary,
-                fontSize: theme.typography.fontSize.md,
-                fontWeight: theme.typography.fontWeight.semibold,
-              },
-            ]}
-          >
-            {category || 'N/A'}
-          </Text>
+          <View style={styles.categoryValue}>
+            <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+            <Text
+              style={[
+                styles.value,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: theme.typography.fontSize.md,
+                  fontWeight: theme.typography.fontWeight.semibold,
+                },
+              ]}
+            >
+              {category || 'N/A'}
+            </Text>
+          </View>
         </View>
 
         <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
@@ -208,6 +212,14 @@ const styles = StyleSheet.create({
   },
   value: {
     textAlign: 'right',
+  },
+  categoryValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryEmoji: {
+    fontSize: 20,
   },
   divider: {
     height: 1,

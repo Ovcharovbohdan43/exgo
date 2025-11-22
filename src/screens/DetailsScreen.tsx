@@ -4,6 +4,7 @@ import { useTransactions } from '../state/TransactionsProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useMonthlyTotals, useCategoryBreakdown } from '../state/selectors';
 import { formatCurrency } from '../utils/format';
+import { getCategoryEmoji } from '../utils/categoryEmojis';
 
 const DetailsScreen: React.FC = () => {
   const { transactions } = useTransactions();
@@ -27,8 +28,11 @@ const DetailsScreen: React.FC = () => {
         contentContainerStyle={{ gap: 8 }}
         renderItem={({ item: [category, stats] }) => (
           <View style={styles.row}>
-            <View>
-              <Text style={styles.category}>{category}</Text>
+            <View style={styles.categoryInfo}>
+              <View style={styles.categoryRow}>
+                <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+                <Text style={styles.category}>{category}</Text>
+              </View>
               <Text style={styles.percent}>{stats.percent.toFixed(1)}%</Text>
             </View>
             <Text style={styles.amount}>{formatCurrency(stats.amount, settings.currency)}</Text>
@@ -64,6 +68,17 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     backgroundColor: '#f6f7fb',
+  },
+  categoryInfo: {
+    flex: 1,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryEmoji: {
+    fontSize: 20,
   },
   category: {
     fontSize: 16,

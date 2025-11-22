@@ -4,6 +4,7 @@ import { Card } from '../layout';
 import { useThemeStyles } from '../../theme/ThemeProvider';
 import { EXPENSE_CATEGORIES } from '../../constants/categories';
 import { TransactionType } from '../../types';
+import { getCategoryEmoji } from '../../utils/categoryEmojis';
 
 type CategorySelectionStepProps = {
   type: TransactionType;
@@ -50,6 +51,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
             borderColor: theme.colors.positive,
           }}
         >
+          <Text style={styles.emoji}>{getCategoryEmoji('Income')}</Text>
           <Text
             style={[
               styles.fixedCategoryText,
@@ -115,6 +117,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
                   borderWidth: isSelected ? 2 : 1,
                 }}
               >
+                <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
                 <Text
                   style={[
                     styles.categoryText,
@@ -150,6 +153,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 60,
   },
+  emoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
   fixedCategoryText: {
     textAlign: 'center',
   },
@@ -163,6 +170,11 @@ const styles = StyleSheet.create({
   categoryCard: {
     minHeight: 56,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
   },
   categoryText: {
     textAlign: 'center',

@@ -387,7 +387,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           )}
 
           <View style={styles.footer}>
-            {step !== 'type' && step !== 'confirm' && (
+            {step === 'amount' && (
               <TouchableOpacity
                 onPress={handleAmountNext}
                 disabled={!canGoNext() || isSaving}
