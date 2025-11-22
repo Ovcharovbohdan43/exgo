@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { TouchableOpacity, View, Text, StyleSheet, ViewStyle } from 'react-native';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
+import { TouchableOpacity, View, Text, StyleSheet, ViewStyle, Animated } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useThemeStyles } from '../theme/ThemeProvider';
 
@@ -28,7 +28,8 @@ const DonutChart: React.FC<Props> = ({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const segments = useMemo(() => {
+  // Calculate target values
+  const targetSegments = useMemo(() => {
     // Clamp remaining at 0 for visual representation
     const clampedRemaining = Math.max(remaining, 0);
     const total = Math.max(spent + saved + clampedRemaining, 1);
@@ -40,6 +41,86 @@ const DonutChart: React.FC<Props> = ({
     ];
   }, [remaining, saved, spent, theme.colors]);
 
+  // Animated values for each segment
+  const [animatedSegments, setAnimatedSegments] = useState(targetSegments);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
+
+  // Animate segments when values change
+  useEffect(() => {
+    // Clear any existing animation
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    cancelledRef.current = false;
+
+    setAnimatedSegments(prev => {
+      // Check if values actually changed
+      const hasChanged = targetSegments.some((target, index) => {
+        const current = prev[index]?.value || 0;
+        return Math.abs(target.value - current) > 0.001;
+      });
+
+      if (!hasChanged) {
+        return targetSegments;
+      }
+
+      // Start animation
+      const startTime = Date.now();
+      const duration = 600; // ms
+      const startValues = prev.map(s => s.value);
+
+      const animate = () => {
+        if (cancelledRef.current) return;
+
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function (ease-out)
+        const eased = 1 - Math.pow(1 - progress, 3);
+
+        setAnimatedSegments(current => {
+          if (cancelledRef.current) return current;
+
+          const newSegments = current.map((prevSeg, index) => {
+            const target = targetSegments[index];
+            const start = startValues[index];
+            const currentValue = start + (target.value - start) * eased;
+            
+            return {
+              ...prevSeg,
+              value: currentValue,
+            };
+          });
+
+          // Continue animation if not complete
+          if (progress < 1 && !cancelledRef.current) {
+            timeoutRef.current = setTimeout(animate, 16); // ~60fps
+          } else if (progress >= 1) {
+            // Ensure final values are set
+            return targetSegments;
+          }
+
+          return newSegments;
+        });
+      };
+
+      timeoutRef.current = setTimeout(animate, 16);
+
+      return prev; // Return current state to start animation
+    });
+
+    return () => {
+      cancelledRef.current = true;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [targetSegments]);
+
+  const segments = animatedSegments;
   let offset = 0;
 
   const chartContent = (
