@@ -6,12 +6,12 @@ import { ScreenContainer, SectionHeader } from '../components/layout';
 import DonutChart from '../components/DonutChart';
 import FloatingActionButton from '../components/FloatingActionButton';
 import { SummaryCard } from '../components/SummaryCard';
-import { LastTransactionPreview } from '../components/LastTransactionPreview';
+import { TransactionsList } from '../components/TransactionsList';
 import { AddTransactionModal } from '../components/AddTransaction';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useTransactions } from '../state/TransactionsProvider';
-import { useMonthlyTotals, useLastTransaction, useCurrentMonthTransactions } from '../state/selectors';
+import { useMonthlyTotals, useCurrentMonthTransactions, useRecentTransactions } from '../state/selectors';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { formatCurrency } from '../utils/format';
 import { clearAllData } from '../utils/devReset';
@@ -25,7 +25,7 @@ const HomeScreen: React.FC = () => {
   const { transactions } = useTransactions();
   const currentMonthTransactions = useCurrentMonthTransactions(transactions);
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
-  const lastTransaction = useLastTransaction(currentMonthTransactions);
+  const recentTransactions = useRecentTransactions(currentMonthTransactions, 5);
   
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -171,16 +171,17 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Last Transaction Section */}
-        <View style={styles.lastTransactionSection}>
+        {/* Recent Transactions Section */}
+        <View style={styles.recentTransactionsSection}>
           <SectionHeader
-            title="Last Transaction"
+            title="Recent Transactions"
             variant="overline"
             style={styles.sectionHeader}
           />
-          <LastTransactionPreview
-            transaction={lastTransaction}
+          <TransactionsList
+            transactions={recentTransactions}
             currency={settings.currency}
+            maxItems={5}
           />
         </View>
 
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '30%',
   },
-  lastTransactionSection: {
+  recentTransactionsSection: {
     marginTop: 8,
   },
   devSection: {

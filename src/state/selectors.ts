@@ -63,3 +63,17 @@ export const useLastTransaction = (transactions: Transaction[]) => {
   }, [transactions]);
 };
 
+/**
+ * Memoized selector for recent transactions (sorted by date, newest first)
+ */
+export const useRecentTransactions = (
+  transactions: Transaction[],
+  limit: number = 5,
+) => {
+  return useMemo(() => {
+    return [...transactions]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+  }, [transactions, limit]);
+};
+
