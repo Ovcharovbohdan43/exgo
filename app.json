@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "ExGo",
+    "slug": "exgo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "flowbudget",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
+    }
+  }
+}
