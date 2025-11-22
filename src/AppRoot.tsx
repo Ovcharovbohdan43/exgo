@@ -5,14 +5,18 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import RootNavigator from './navigation/RootNavigator';
 import { AppProvider } from './state/AppProvider';
+import { ThemeProvider, useThemeStyles } from './theme/ThemeProvider';
 import { useSettings } from './state/SettingsProvider';
 import { useTransactions } from './state/TransactionsProvider';
 
-const Loader = () => (
-  <View style={styles.loader}>
-    <ActivityIndicator />
-  </View>
-);
+const Loader = () => {
+  const theme = useThemeStyles();
+  return (
+    <View style={[styles.loader, { backgroundColor: theme.colors.background }]}>
+      <ActivityIndicator size="large" color={theme.colors.accent} />
+    </View>
+  );
+};
 
 const AppContent = () => {
   const { settings, hydrated: settingsReady } = useSettings();
@@ -31,10 +35,12 @@ const AppContent = () => {
 const AppRoot = () => {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <StatusBar style="auto" />
-        <AppContent />
-      </AppProvider>
+      <ThemeProvider>
+        <AppProvider>
+          <StatusBar style="auto" />
+          <AppContent />
+        </AppProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 };

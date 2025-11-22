@@ -1,0 +1,99 @@
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import { useColorScheme as useRNColorScheme } from 'react-native';
+import { lightColors, darkColors, type ColorScheme, type ThemeColors } from './colors';
+import { spacing } from './tokens';
+import { typography } from './tokens';
+import { radii } from './tokens';
+import { shadows } from './tokens';
+
+export interface Theme {
+  colors: ThemeColors;
+  spacing: typeof spacing;
+  typography: typeof typography;
+  radii: typeof radii;
+  shadows: typeof shadows;
+  colorScheme: ColorScheme;
+}
+
+type ThemeContextValue = {
+  theme: Theme;
+  colorScheme: ColorScheme;
+  setColorScheme: (scheme: ColorScheme | 'system') => void;
+  toggleColorScheme: () => void;
+};
+
+const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
+
+const createTheme = (colorScheme: ColorScheme): Theme => ({
+  colors: colorScheme === 'dark' ? darkColors : lightColors,
+  spacing,
+  typography,
+  radii,
+  shadows,
+  colorScheme,
+});
+
+type ThemeProviderProps = {
+  children: React.ReactNode;
+  defaultColorScheme?: ColorScheme | 'system';
+};
+
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({
+  children,
+  defaultColorScheme = 'system',
+}) => {
+  const systemColorScheme = useRNColorScheme();
+  const [preferredScheme, setPreferredScheme] = useState<ColorScheme | 'system'>(
+    defaultColorScheme,
+  );
+
+  const effectiveColorScheme: ColorScheme = useMemo(() => {
+    if (preferredScheme === 'system') {
+      return systemColorScheme === 'dark' ? 'dark' : 'light';
+    }
+    return preferredScheme;
+  }, [preferredScheme, systemColorScheme]);
+
+  const theme = useMemo(() => createTheme(effectiveColorScheme), [effectiveColorScheme]);
+
+  const setColorScheme = (scheme: ColorScheme | 'system') => {
+    setPreferredScheme(scheme);
+    // TODO: Persist preference to AsyncStorage in Phase 2
+  };
+
+  const toggleColorScheme = () => {
+    setPreferredScheme((current) => {
+      if (current === 'system') {
+        return systemColorScheme === 'dark' ? 'light' : 'dark';
+      }
+      return current === 'dark' ? 'light' : 'dark';
+    });
+  };
+
+  const value = useMemo(
+    () => ({
+      theme,
+      colorScheme: effectiveColorScheme,
+      setColorScheme,
+      toggleColorScheme,
+    }),
+    [theme, effectiveColorScheme],
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+};
+
+export const useTheme = (): ThemeContextValue => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return context;
+};
+
+// Hook to get theme object directly
+export const useThemeStyles = (): Theme => {
+  const { theme } = useTheme();
+  return theme;
+};
+

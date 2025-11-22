@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { calculateTotals } from '../modules/calculations';
@@ -8,6 +8,7 @@ import { useSettings } from '../state/SettingsProvider';
 import { useTransactions } from '../state/TransactionsProvider';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
+import { clearAllData } from '../utils/devReset';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -25,6 +26,31 @@ const HomeScreen: React.FC = () => {
     });
   };
 
+  const handleResetOnboarding = async () => {
+    Alert.alert(
+      'Reset Onboarding',
+      'This will clear all data and show onboarding screen again. Restart the app after reset.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllData();
+              Alert.alert(
+                'Success',
+                'Data cleared! Please restart the app (close and reopen) to see onboarding.',
+              );
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear data. Check console for details.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.overline}>Monthly balance</Text>
@@ -40,6 +66,12 @@ const HomeScreen: React.FC = () => {
         <Button title="Add sample expense" onPress={handleAddSample} />
         <Button title="Spending breakdown" onPress={() => navigation.navigate('Details')} />
         <Button title="Settings" onPress={() => navigation.navigate('Settings')} />
+        {/* Development only - Remove in production */}
+        <Button
+          title="🔄 Reset Onboarding (Dev)"
+          onPress={handleResetOnboarding}
+          color="#ef4444"
+        />
       </View>
     </View>
   );

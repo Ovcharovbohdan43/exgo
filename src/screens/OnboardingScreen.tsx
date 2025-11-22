@@ -1,190 +1,557 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
+import { ScreenContainer, Card } from '../components/layout';
+import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
+import { formatCurrency } from '../utils/format';
 
-const CURRENCIES = ['USD', 'EUR', 'GBP'] as const;
+const CURRENCIES = ['USD', 'GBP', 'EUR'] as const;
+type Currency = typeof CURRENCIES[number];
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const OnboardingScreen: React.FC = () => {
+  const theme = useThemeStyles();
   const { settings, updateSettings, setOnboarded } = useSettings();
-  const [currency, setCurrency] = useState(settings.currency || 'USD');
-  const [income, setIncome] = useState(settings.monthlyIncome ? String(settings.monthlyIncome) : '');
+  const [currency, setCurrency] = useState<Currency>(
+    (settings.currency as Currency) || 'USD',
+  );
+  const [income, setIncome] = useState(
+    settings.monthlyIncome ? String(settings.monthlyIncome) : '',
+  );
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [tempCurrency, setTempCurrency] = useState(currency);
+  const [tempCurrency, setTempCurrency] = useState<Currency>(currency);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async () => {
-    const parsedIncome = Number(income) || 0;
-    await updateSettings({
-      currency: currency || 'USD',
-      monthlyIncome: parsedIncome,
-    });
-    await setOnboarded();
+  const handleCurrencySelect = (selectedCurrency: Currency) => {
+    setTempCurrency(selectedCurrency);
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>ExGo</Text>
-      <Text style={styles.subtitle}>Set your monthly income to get started</Text>
-      <View style={styles.form}>
-        <Text style={styles.label}>Currency</Text>
-        <TouchableOpacity
-          style={[styles.fieldBase, styles.fieldPress]}
-          onPress={() => {
-            setTempCurrency(currency);
-            setPickerVisible(true);
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.fieldValue}>{currency}</Text>
-        </TouchableOpacity>
+  const handleCurrencyConfirm = () => {
+    setCurrency(tempCurrency);
+    setPickerVisible(false);
+  };
 
-        <Modal visible={pickerVisible} transparent animationType="slide">
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalSheet}>
-              <Text style={styles.modalTitle}>Select currency</Text>
-              <View style={styles.modalList}>
-                {CURRENCIES.map((code) => {
-                  const selected = tempCurrency === code;
-                  return (
-                    <TouchableOpacity
-                      key={code}
-                      style={[styles.option, selected && styles.optionSelected]}
-                      onPress={() => setTempCurrency(code)}
+  const handleSave = async () => {
+    const parsedIncome = Number(income);
+    
+    // Validation
+    if (!income.trim()) {
+      setError('Please enter your monthly income');
+      return;
+    }
+    
+    if (isNaN(parsedIncome) || parsedIncome <= 0) {
+      setError('Please enter a valid positive number');
+      return;
+    }
+
+    setError(null);
+    setIsSaving(true);
+
+    try {
+      await updateSettings({
+        currency: currency || 'USD',
+        monthlyIncome: parsedIncome,
+      });
+      await setOnboarded();
+    } catch (err) {
+      setError('Failed to save settings. Please try again.');
+      setIsSaving(false);
+    }
+  };
+
+  const isFormValid = income.trim() && Number(income) > 0;
+
+  return (
+    <ScreenContainer>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View
+          style={[
+            styles.container,
+            { paddingTop: SCREEN_HEIGHT * 0.2 }, // Поднимаем форму выше на 20%
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: theme.typography.fontSize.xxxl,
+                  fontWeight: theme.typography.fontWeight.bold,
+                },
+              ]}
+            >
+              Welcome to ExGo
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  color: theme.colors.textSecondary,
+                  fontSize: theme.typography.fontSize.md,
+                },
+              ]}
+            >
+              Let's set up your budget
+            </Text>
+          </View>
+
+          {/* Form Card - Centered */}
+          <View style={styles.formContainer}>
+            <Card variant="elevated" padding="lg" style={styles.formCard}>
+              {/* Currency Selection Field */}
+              <View style={styles.fieldContainer}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.sm,
+                      fontWeight: theme.typography.fontWeight.medium,
+                    },
+                  ]}
+                >
+                  Currency
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setTempCurrency(currency);
+                    setPickerVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Card
+                    variant="outlined"
+                    padding="none"
+                    style={{
+                      ...styles.inputCard,
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.surface,
+                    }}
+                  >
+                    <View style={styles.currencyRow}>
+                      <Text
+                        style={[
+                          styles.currencyText,
+                          {
+                            color: theme.colors.textPrimary,
+                            fontSize: theme.typography.fontSize.lg,
+                            fontWeight: theme.typography.fontWeight.semibold,
+                          },
+                        ]}
+                      >
+                        {currency}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.chevron,
+                          { color: theme.colors.textMuted },
+                        ]}
+                      >
+                        ▼
+                      </Text>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              </View>
+
+              {/* Income Input Field */}
+              <View style={styles.fieldContainer}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.sm,
+                      fontWeight: theme.typography.fontWeight.medium,
+                    },
+                  ]}
+                >
+                  Monthly Income
+                </Text>
+                <View style={styles.incomeInputContainer}>
+                  <Card
+                    variant="outlined"
+                    padding="none"
+                    style={{
+                      ...styles.inputCard,
+                      borderColor: error
+                        ? theme.colors.danger
+                        : theme.colors.border,
+                      backgroundColor: theme.colors.surface,
+                    }}
+                  >
+                    <View style={styles.incomeRow}>
+                      <Text
+                        style={[
+                          styles.currencyPrefix,
+                          {
+                            color: theme.colors.textMuted,
+                            fontSize: theme.typography.fontSize.lg,
+                            fontWeight: theme.typography.fontWeight.medium,
+                          },
+                        ]}
+                      >
+                        {currency === 'USD' ? '$' : currency === 'GBP' ? '£' : '€'}
+                      </Text>
+                      <TextInput
+                        placeholder="0"
+                        placeholderTextColor={theme.colors.textMuted}
+                        keyboardType="numeric"
+                        value={income}
+                        onChangeText={(text) => {
+                          setIncome(text);
+                          setError(null);
+                        }}
+                        style={[
+                          styles.input,
+                          {
+                            color: theme.colors.textPrimary,
+                            fontSize: theme.typography.fontSize.lg,
+                          },
+                        ]}
+                        returnKeyType="done"
+                        onSubmitEditing={handleSave}
+                      />
+                    </View>
+                  </Card>
+                  {error && (
+                    <Text
+                      style={[
+                        styles.errorText,
+                        {
+                          color: theme.colors.danger,
+                          fontSize: theme.typography.fontSize.xs,
+                        },
+                      ]}
                     >
-                      <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
+                      {error}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Continue Button */}
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={!isFormValid || isSaving}
+                activeOpacity={0.8}
+                style={[
+                  styles.continueButton,
+                  {
+                    backgroundColor: isFormValid
+                      ? theme.colors.accent
+                      : theme.colors.border,
+                    opacity: isFormValid && !isSaving ? 1 : 0.6,
+                  },
+                ]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color={theme.colors.background} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.continueButtonText,
+                      {
+                        color: theme.colors.background,
+                        fontSize: theme.typography.fontSize.md,
+                        fontWeight: theme.typography.fontWeight.semibold,
+                      },
+                    ]}
+                  >
+                    Continue
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Card>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Currency Picker Modal */}
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setPickerVisible(false)}
+        >
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: theme.colors.card,
+                borderTopLeftRadius: theme.radii.lg,
+                borderTopRightRadius: theme.radii.lg,
+              },
+            ]}
+          >
+            <View style={styles.modalHandle} />
+            <Text
+              style={[
+                styles.modalTitle,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: theme.typography.fontSize.lg,
+                  fontWeight: theme.typography.fontWeight.semibold,
+                },
+              ]}
+            >
+              Select Currency
+            </Text>
+            <View style={styles.modalList}>
+              {CURRENCIES.map((code) => {
+                const selected = tempCurrency === code;
+                return (
+                  <TouchableOpacity
+                    key={code}
+                    onPress={() => handleCurrencySelect(code)}
+                    activeOpacity={0.7}
+                  >
+                    <Card
+                      variant={selected ? 'outlined' : 'default'}
+                      padding="md"
+                      style={{
+                        ...styles.currencyOption,
+                        ...(selected && {
+                          borderColor: theme.colors.accent,
+                          backgroundColor: theme.colors.accentLight,
+                        }),
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.currencyOptionText,
+                          {
+                            color: selected
+                              ? theme.colors.accent
+                              : theme.colors.textPrimary,
+                            fontSize: theme.typography.fontSize.md,
+                            fontWeight: selected
+                              ? theme.typography.fontWeight.semibold
+                              : theme.typography.fontWeight.regular,
+                          },
+                        ]}
+                      >
                         {code}
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <View style={styles.modalActions}>
-                <Button title="Cancel" onPress={() => setPickerVisible(false)} />
-                <Button
-                  title="Done"
-                  onPress={() => {
-                    setCurrency(tempCurrency);
-                    setPickerVisible(false);
-                  }}
-                />
-              </View>
+                    </Card>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonSecondary,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                onPress={() => setPickerVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color: theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                    },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonPrimary,
+                  {
+                    backgroundColor: theme.colors.accent,
+                  },
+                ]}
+                onPress={handleCurrencyConfirm}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color: theme.colors.background,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  Done
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-
-        <Text style={styles.label}>Monthly income</Text>
-        <TextInput
-          placeholder="2000"
-          keyboardType="numeric"
-          value={income}
-          onChangeText={setIncome}
-          style={[styles.fieldBase, styles.input]}
-        />
-        <Button title="Save & Continue" onPress={handleSave} />
-      </View>
-    </View>
+        </TouchableOpacity>
+      </Modal>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-    backgroundColor: '#f6f7fb',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 24,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 48,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#555',
+    textAlign: 'center',
+  },
+  formContainer: {
+    width: '100%',
+  },
+  formCard: {
+    width: '100%',
+  },
+  fieldContainer: {
     marginBottom: 24,
   },
-  form: {
-    gap: 10,
-  },
   label: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  fieldBase: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    height: 52,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+  inputCard: {
+    height: 56, // Фиксированная высота для обоих полей
+    justifyContent: 'center', // Центрируем содержимое по вертикали
   },
-  input: {
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  fieldItem: {
-    fontSize: 16,
-  },
-  fieldPress: {
+  currencyRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12, // Одинаковый padding как в incomeRow
+    height: '100%', // Занимает всю высоту карточки
   },
-  fieldValue: {
-    fontSize: 16,
-    color: '#111',
+  currencyText: {
+    flex: 1,
+  },
+  chevron: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  incomeInputContainer: {
+    width: '100%',
+  },
+  incomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: '100%', // Занимает всю высоту карточки
+  },
+  currencyPrefix: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 0,
+    height: '100%', // Занимает всю высоту родителя
+  },
+  errorText: {
+    marginTop: 6,
+    marginLeft: 4,
+  },
+  continueButton: {
+    height: 56,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  continueButtonText: {
+    textAlign: 'center',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: 32,
+    maxHeight: '60%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ccc',
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  modalPicker: {
-    height: 200,
+  modalList: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  currencyOption: {
+    minHeight: 56,
     justifyContent: 'center',
+  },
+  currencyOptionText: {
+    textAlign: 'center',
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
     gap: 12,
   },
-  modalList: {
-    gap: 10,
-    marginVertical: 8,
+  modalButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  option: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+  modalButtonSecondary: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#f9fafb',
   },
-  optionSelected: {
-    borderColor: '#2563eb',
-    backgroundColor: '#e0e7ff',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#111',
-  },
-  optionTextSelected: {
-    fontWeight: '700',
-    color: '#1d4ed8',
+  modalButtonPrimary: {},
+  modalButtonText: {
+    textAlign: 'center',
   },
 });
 
