@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalContent: {
-    maxHeight: '95%',
+    maxHeight: '98%', // Increased by ~3% to accommodate content better
     paddingBottom: 32,
   },
   handle: {
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   content: {
-    maxHeight: 540, // Increased by 35% from 400 to 540
+    maxHeight: 653, // Increased by 10% from 594 to 653 to avoid scrolling
   },
   contentContainer: {
     paddingHorizontal: 24,

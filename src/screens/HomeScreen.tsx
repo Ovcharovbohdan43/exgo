@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { ScreenContainer, SectionHeader } from '../components/layout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SectionHeader } from '../components/layout';
 import DonutChart from '../components/DonutChart';
 import FloatingActionButton from '../components/FloatingActionButton';
 import { SummaryCard } from '../components/SummaryCard';
@@ -21,6 +22,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 const HomeScreen: React.FC = () => {
   const theme = useThemeStyles();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const { transactions } = useTransactions();
   const currentMonthTransactions = useCurrentMonthTransactions(transactions);
@@ -75,13 +77,22 @@ const HomeScreen: React.FC = () => {
   const remainingColor = totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary;
 
   return (
-    <ScreenContainer scrollable>
+    <View
+      style={[
+        styles.screenContainer,
+        {
+          backgroundColor: theme.colors.background,
+          paddingTop: insets.top,
+        },
+      ]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: 100 }, // Space for FAB
         ]}
         showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
       >
         {/* Header Section */}
         <View style={styles.header}>
@@ -200,8 +211,16 @@ const HomeScreen: React.FC = () => {
         )}
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <View style={styles.fabContainer}>
+      {/* Floating Action Button - Fixed in bottom right */}
+      <View
+        style={[
+          styles.fabContainer,
+          {
+            bottom: Math.max(24, insets.bottom + 8), // Account for safe area
+            right: Math.max(24, insets.right + 8),
+          },
+        ]}
+      >
         <FloatingActionButton onPress={handleFABPress} />
       </View>
 
@@ -210,11 +229,17 @@ const HomeScreen: React.FC = () => {
         visible={modalVisible}
         onClose={handleCloseModal}
       />
-    </ScreenContainer>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
     padding: 24,
     gap: 24,
@@ -269,10 +294,10 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1000, // Ensure FAB is above all content
+    elevation: 8, // Android shadow/elevation
   },
 });
 
