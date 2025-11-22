@@ -16,6 +16,7 @@ import { useMonthlyTotals, useCurrentMonthTransactions, useRecentTransactions } 
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { formatCurrency } from '../utils/format';
 import { clearAllData } from '../utils/devReset';
+import { Transaction } from '../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -24,12 +25,13 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const { transactions } = useTransactions();
+  const { transactions, deleteTransaction } = useTransactions();
   const currentMonthTransactions = useCurrentMonthTransactions(transactions);
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
   const recentTransactions = useRecentTransactions(currentMonthTransactions, 5);
   
   const [modalVisible, setModalVisible] = useState(false);
+  const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
 
   // Debug: Log currency on mount and when settings change
   React.useEffect(() => {
@@ -42,11 +44,27 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleFABPress = () => {
+    setTransactionToEdit(null);
     setModalVisible(true);
   };
 
   const handleCloseModal = () => {
     setModalVisible(false);
+    setTransactionToEdit(null);
+  };
+
+  const handleTransactionPress = (transaction: Transaction) => {
+    setTransactionToEdit(transaction);
+    setModalVisible(true);
+  };
+
+  const handleTransactionDelete = async (transaction: Transaction) => {
+    try {
+      await deleteTransaction(transaction.id);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete transaction. Please try again.');
+      console.error('[HomeScreen] Delete error:', error);
+    }
   };
 
   const handleResetOnboarding = async () => {
@@ -193,6 +211,8 @@ const HomeScreen: React.FC = () => {
             transactions={recentTransactions}
             currency={settings.currency}
             maxItems={5}
+            onTransactionPress={handleTransactionPress}
+            onTransactionDelete={handleTransactionDelete}
           />
         </View>
 
@@ -224,9 +244,10 @@ const HomeScreen: React.FC = () => {
         <FloatingActionButton onPress={handleFABPress} />
       </View>
 
-      {/* Add Transaction Modal */}
+      {/* Add/Edit Transaction Modal */}
       <AddTransactionModal
         visible={modalVisible}
+        transactionToEdit={transactionToEdit}
         onClose={handleCloseModal}
       />
     </View>

@@ -3,7 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicat
 import { useThemeStyles } from '../../theme/ThemeProvider';
 import { useSettings } from '../../state/SettingsProvider';
 import { useTransactions } from '../../state/TransactionsProvider';
-import { TransactionType } from '../../types';
+import { TransactionType, Transaction } from '../../types';
 import { AmountInputStep } from './AmountInputStep';
 import { CategorySelectionStep } from './CategorySelectionStep';
 import { ConfirmStep } from './ConfirmStep';
@@ -11,6 +11,7 @@ import { ConfirmStep } from './ConfirmStep';
 type AddTransactionModalProps = {
   visible: boolean;
   initialType?: TransactionType;
+  transactionToEdit?: Transaction | null; // Transaction to edit (if provided, modal works in edit mode)
   onClose: () => void;
 };
 
@@ -23,11 +24,13 @@ type Step = 'type' | 'amount' | 'category' | 'confirm';
 export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   visible,
   initialType,
+  transactionToEdit,
   onClose,
 }) => {
   const theme = useThemeStyles();
   const { settings } = useSettings();
-  const { addTransaction } = useTransactions();
+  const { addTransaction, updateTransaction } = useTransactions();
+  const isEditMode = !!transactionToEdit;
 
   // Debug: Log currency when modal opens
   React.useEffect(() => {
@@ -43,17 +46,26 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state when modal opens/closes
+  // Reset state when modal opens/closes or transactionToEdit changes
   React.useEffect(() => {
     if (visible) {
-      setStep(initialType ? 'amount' : 'type');
-      setType(initialType || null);
-      setAmount('');
-      setCategory(null);
+      if (transactionToEdit) {
+        // Edit mode: pre-fill with transaction data
+        setStep('amount');
+        setType(transactionToEdit.type);
+        setAmount(String(transactionToEdit.amount));
+        setCategory(transactionToEdit.category || null);
+      } else {
+        // Add mode: reset to defaults
+        setStep(initialType ? 'amount' : 'type');
+        setType(initialType || null);
+        setAmount('');
+        setCategory(null);
+      }
       setError(null);
       setIsSaving(false);
     }
-  }, [visible, initialType]);
+  }, [visible, initialType, transactionToEdit]);
 
   const handleTypeSelect = useCallback((selectedType: TransactionType) => {
     setType(selectedType);
@@ -115,28 +127,48 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setError(null);
 
     try {
-      await addTransaction({
-        type,
-        amount: numAmount,
-        category,
-        createdAt: new Date().toISOString(),
-      });
+      if (isEditMode && transactionToEdit) {
+        // Update existing transaction
+        await updateTransaction(transactionToEdit.id, {
+          type,
+          amount: numAmount,
+          category,
+          createdAt: transactionToEdit.createdAt, // Keep original date
+        });
 
-      // Show success message
-      const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';
-      Alert.alert('Success', `${typeLabel} added successfully!`, [
-        {
-          text: 'OK',
-          onPress: () => {
-            onClose();
+        const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';
+        Alert.alert('Success', `${typeLabel} updated successfully!`, [
+          {
+            text: 'OK',
+            onPress: () => {
+              onClose();
+            },
           },
-        },
-      ]);
+        ]);
+      } else {
+        // Add new transaction
+        await addTransaction({
+          type,
+          amount: numAmount,
+          category,
+          createdAt: new Date().toISOString(),
+        });
+
+        const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';
+        Alert.alert('Success', `${typeLabel} added successfully!`, [
+          {
+            text: 'OK',
+            onPress: () => {
+              onClose();
+            },
+          },
+        ]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save transaction');
       setIsSaving(false);
     }
-  }, [type, amount, category, addTransaction, onClose]);
+  }, [type, amount, category, isEditMode, transactionToEdit, addTransaction, updateTransaction, onClose]);
 
   const handleBack = useCallback(() => {
     setError(null);
@@ -339,7 +371,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 },
               ]}
             >
-              Add Transaction
+              {isEditMode ? 'Edit Transaction' : 'Add Transaction'}
             </Text>
             
             <View style={styles.headerSpacer} />
@@ -475,7 +507,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                       },
                     ]}
                   >
-                    Confirm & Save
+                    {isEditMode ? 'Save Changes' : 'Confirm & Save'}
                   </Text>
                 )}
               </TouchableOpacity>

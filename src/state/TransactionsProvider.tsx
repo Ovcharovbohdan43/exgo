@@ -20,6 +20,13 @@ type TransactionsContextValue = {
     category?: string;
     createdAt?: string;
   }) => Promise<void>;
+  updateTransaction: (id: string, input: {
+    amount: number;
+    type: TransactionType;
+    category?: string;
+    createdAt?: string;
+  }) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   resetTransactions: () => Promise<void>;
   retryHydration: () => Promise<void>;
 };
@@ -103,6 +110,32 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [transactions, persist],
   );
 
+  const updateTransaction: TransactionsContextValue['updateTransaction'] = useCallback(
+    async (id: string, { amount, type, category, createdAt }) => {
+      const next = transactions.map((tx) =>
+        tx.id === id
+          ? {
+              ...tx,
+              amount,
+              type,
+              category,
+              createdAt: createdAt ?? tx.createdAt,
+            }
+          : tx
+      );
+      await persist(next);
+    },
+    [transactions, persist],
+  );
+
+  const deleteTransaction: TransactionsContextValue['deleteTransaction'] = useCallback(
+    async (id: string) => {
+      const next = transactions.filter((tx) => tx.id !== id);
+      await persist(next);
+    },
+    [transactions, persist],
+  );
+
   const resetTransactions = useCallback(async () => {
     await persist([]);
   }, [persist]);
@@ -118,10 +151,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       loading,
       error,
       addTransaction,
+      updateTransaction,
+      deleteTransaction,
       resetTransactions,
       retryHydration,
     }),
-    [transactions, hydrated, loading, error, addTransaction, resetTransactions, retryHydration],
+    [transactions, hydrated, loading, error, addTransaction, updateTransaction, deleteTransaction, resetTransactions, retryHydration],
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

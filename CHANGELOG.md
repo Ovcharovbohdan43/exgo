@@ -4,6 +4,22 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-XX] - Transaction Editing Feature
+
+#### Added
+- **Transaction Editing**: Added ability to edit existing transactions (amount, type, category)
+  - Added `updateTransaction` function to `TransactionsProvider` for updating existing transactions
+  - Modified `AddTransactionModal` to support both add and edit modes
+  - Added tap-to-edit functionality in `TransactionsList` on Home screen
+  - All data (donut charts, totals, lists) automatically update when transactions are edited
+  - Edit mode preserves original transaction creation date
+  - Modal header and button text change based on mode ("Add Transaction" vs "Edit Transaction", "Confirm & Save" vs "Save Changes")
+
+#### Changed
+- `AddTransactionModal` now accepts optional `transactionToEdit` prop to enable edit mode
+- `TransactionsList` items are now tappable to open edit modal via `onTransactionPress` callback
+- Transaction updates use optimistic updates for instant UI feedback
+
 ### [2025-01-XX] - Phase 5: Add Transaction Flow
 
 #### Added

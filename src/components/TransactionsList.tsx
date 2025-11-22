@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, ViewStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, ViewStyle, TouchableOpacity, Alert } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { Transaction } from '../types';
@@ -11,6 +12,8 @@ type TransactionsListProps = {
   transactions: Transaction[];
   currency: string;
   maxItems?: number;
+  onTransactionPress?: (transaction: Transaction) => void;
+  onTransactionDelete?: (transaction: Transaction) => void;
   style?: ViewStyle;
 };
 
@@ -18,6 +21,8 @@ type TransactionItemProps = {
   transaction: Transaction;
   currency: string;
   theme: ReturnType<typeof useThemeStyles>;
+  onPress?: () => void;
+  onDelete?: () => void;
 };
 
 type GroupedTransaction = {
@@ -26,7 +31,48 @@ type GroupedTransaction = {
   transactions: Transaction[];
 };
 
-const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme }) => {
+const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme, onPress, onDelete }) => {
+  const swipeableRef = useRef<Swipeable>(null);
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Transaction',
+      `Are you sure you want to delete this ${transaction.type} transaction?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            swipeableRef.current?.close();
+          },
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            swipeableRef.current?.close();
+            onDelete?.();
+          },
+        },
+      ],
+    );
+  };
+
+  const renderRightActions = () => {
+    return (
+      <View style={[styles.rightAction, { backgroundColor: theme.colors.danger }]}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDelete}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.deleteButtonText, { color: theme.colors.background }]}>
+            Delete
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
   const getTypeColor = () => {
     switch (transaction.type) {
       case 'expense':
@@ -55,9 +101,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
 
   const typeColor = getTypeColor();
 
-  return (
-    <Card variant="outlined" padding="md" style={styles.transactionCard}>
-      <View style={styles.container}>
+  const content = (
+    <View style={styles.container}>
         <View style={styles.leftSection}>
           <Text
             style={[
@@ -122,8 +167,35 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
           </Text>
         </View>
       </View>
+  );
+
+  const cardContent = (
+    <Card variant="outlined" padding="md" style={styles.transactionCard}>
+      {onPress ? (
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+          {content}
+        </TouchableOpacity>
+      ) : (
+        content
+      )}
     </Card>
   );
+
+  // Wrap with Swipeable if onDelete is provided
+  if (onDelete) {
+    return (
+      <Swipeable
+        ref={swipeableRef}
+        renderRightActions={renderRightActions}
+        rightThreshold={40}
+        overshootRight={false}
+      >
+        {cardContent}
+      </Swipeable>
+    );
+  }
+
+  return cardContent;
 };
 
 const DateHeader: React.FC<{ dateLabel: string; theme: ReturnType<typeof useThemeStyles> }> = ({
@@ -156,6 +228,8 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   transactions,
   currency,
   maxItems = 5,
+  onTransactionPress,
+  onTransactionDelete,
   style,
 }) => {
   const theme = useThemeStyles();
@@ -252,7 +326,9 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
             <TransactionItem 
               transaction={item.data} 
               currency={currency} 
-              theme={theme} 
+              theme={theme}
+              onPress={onTransactionPress ? () => onTransactionPress(item.data) : undefined}
+              onDelete={onTransactionDelete ? () => onTransactionDelete(item.data) : undefined}
             />
           );
         }}
@@ -331,5 +407,25 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
+  },
+  rightAction: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 20,
+    marginVertical: 4,
+    borderRadius: 12,
+    minWidth: 100,
+  },
+  deleteButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+    height: '100%',
+    paddingHorizontal: 16,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

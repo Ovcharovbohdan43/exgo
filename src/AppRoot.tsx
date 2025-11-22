@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import RootNavigator from './navigation/RootNavigator';
@@ -121,14 +122,16 @@ const AppContent = () => {
 
 const AppRoot = () => {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <AppProvider>
-          <StatusBar style="auto" />
-          <AppContent />
-        </AppProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AppProvider>
+            <StatusBar style="auto" />
+            <AppContent />
+          </AppProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 
