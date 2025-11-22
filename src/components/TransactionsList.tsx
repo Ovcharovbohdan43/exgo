@@ -4,7 +4,7 @@ import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
-import { formatDate } from '../utils/date';
+import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
 
 type TransactionsListProps = {
@@ -18,6 +18,12 @@ type TransactionItemProps = {
   transaction: Transaction;
   currency: string;
   theme: ReturnType<typeof useThemeStyles>;
+};
+
+type GroupedTransaction = {
+  dateKey: string;
+  dateLabel: string;
+  transactions: Transaction[];
 };
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme }) => {
@@ -82,14 +88,22 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
           </View>
           <Text
             style={[
-              styles.date,
+              styles.time,
               {
                 color: theme.colors.textMuted,
                 fontSize: theme.typography.fontSize.xs,
               },
             ]}
           >
-            {formatDate(transaction.createdAt)}
+            {(() => {
+              const date = new Date(transaction.createdAt);
+              if (Number.isNaN(date.getTime())) return '';
+              return date.toLocaleTimeString(undefined, { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+              });
+            })()}
           </Text>
         </View>
         <View style={styles.rightSection}>
@@ -112,9 +126,31 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   );
 };
 
+const DateHeader: React.FC<{ dateLabel: string; theme: ReturnType<typeof useThemeStyles> }> = ({
+  dateLabel,
+  theme,
+}) => {
+  return (
+    <View style={styles.dateHeader}>
+      <Text
+        style={[
+          styles.dateHeaderText,
+          {
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSize.sm,
+            fontWeight: theme.typography.fontWeight.medium,
+          },
+        ]}
+      >
+        {dateLabel}
+      </Text>
+    </View>
+  );
+};
+
 /**
- * TransactionsList - Component to display a list of recent transactions
- * Shows transactions sorted by date (newest first)
+ * TransactionsList - Component to display a list of recent transactions grouped by date
+ * Shows transactions sorted by date (newest first) with date headers
  */
 export const TransactionsList: React.FC<TransactionsListProps> = ({
   transactions,
@@ -124,14 +160,62 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 }) => {
   const theme = useThemeStyles();
 
-  // Sort transactions by date (newest first) and limit to maxItems
-  const sortedTransactions = React.useMemo(() => {
-    return [...transactions]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, maxItems);
+  // Group transactions by date and sort
+  const groupedTransactions = React.useMemo(() => {
+    // Sort transactions by date (newest first)
+    const sorted = [...transactions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    // Group by date
+    const groups = new Map<string, Transaction[]>();
+    for (const tx of sorted) {
+      const dateKey = getDateKey(tx.createdAt);
+      if (!dateKey) continue;
+
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      groups.get(dateKey)!.push(tx);
+    }
+
+    // Convert to array and limit total items
+    const result: GroupedTransaction[] = [];
+    let totalCount = 0;
+
+    for (const [dateKey, txs] of groups.entries()) {
+      if (totalCount >= maxItems) break;
+
+      const remaining = maxItems - totalCount;
+      const transactionsToAdd = txs.slice(0, remaining);
+      
+      result.push({
+        dateKey,
+        dateLabel: formatDateWithDay(transactionsToAdd[0].createdAt),
+        transactions: transactionsToAdd,
+      });
+
+      totalCount += transactionsToAdd.length;
+    }
+
+    return result;
   }, [transactions, maxItems]);
 
-  if (sortedTransactions.length === 0) {
+  // Flatten for FlatList
+  const flatListData = React.useMemo(() => {
+    const items: Array<{ type: 'header' | 'transaction'; data: any }> = [];
+    
+    for (const group of groupedTransactions) {
+      items.push({ type: 'header', data: group.dateLabel });
+      for (const tx of group.transactions) {
+        items.push({ type: 'transaction', data: tx });
+      }
+    }
+
+    return items;
+  }, [groupedTransactions]);
+
+  if (flatListData.length === 0) {
     return (
       <Card variant="outlined" padding="md" style={style}>
         <View style={styles.emptyContainer}>
@@ -154,12 +238,31 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   return (
     <View style={style}>
       <FlatList
-        data={sortedTransactions}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TransactionItem transaction={item} currency={currency} theme={theme} />
-        )}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        data={flatListData}
+        keyExtractor={(item, index) => 
+          item.type === 'header' 
+            ? `header-${item.data}` 
+            : `transaction-${item.data.id}-${index}`
+        }
+        renderItem={({ item }) => {
+          if (item.type === 'header') {
+            return <DateHeader dateLabel={item.data} theme={theme} />;
+          }
+          return (
+            <TransactionItem 
+              transaction={item.data} 
+              currency={currency} 
+              theme={theme} 
+            />
+          );
+        }}
+        ItemSeparatorComponent={({ leadingItem }) => {
+          // Don't add separator after headers
+          if (leadingItem?.type === 'header') {
+            return <View style={styles.headerSeparator} />;
+          }
+          return <View style={styles.separator} />;
+        }}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
       />
@@ -195,7 +298,7 @@ const styles = StyleSheet.create({
   category: {
     marginBottom: 4,
   },
-  date: {
+  time: {
     marginTop: 2,
   },
   amount: {
@@ -207,6 +310,20 @@ const styles = StyleSheet.create({
   separator: {
     height: 8,
   },
+  dateHeader: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  dateHeaderText: {
+    opacity: 0.6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  headerSeparator: {
+    height: 4,
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -216,4 +333,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

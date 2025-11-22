@@ -111,7 +111,7 @@ const HomeScreen: React.FC = () => {
               },
             ]}
           >
-            Of {formatCurrency(totals.income, settings.currency)} monthly income
+            Of {formatCurrency(totals.income, settings.currency)} total income
           </Text>
         </View>
 

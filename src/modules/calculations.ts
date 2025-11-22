@@ -23,9 +23,16 @@ export const calculateTotals = (transactions: Transaction[], monthlyIncome: numb
     .filter((tx) => tx.type === 'saved')
     .reduce((sum, tx) => sum + Math.max(tx.amount, 0), 0);
 
-  const remaining = monthlyIncome - (expenses + saved);
+  // Calculate total income: monthly income + income transactions
+  const incomeTransactions = monthly
+    .filter((tx) => tx.type === 'income')
+    .reduce((sum, tx) => sum + Math.max(tx.amount, 0), 0);
+
+  const totalIncome = monthlyIncome + incomeTransactions;
+  const remaining = totalIncome - (expenses + saved);
+  
   return {
-    income: monthlyIncome,
+    income: totalIncome, // Total income including transactions
     expenses,
     saved,
     remaining,

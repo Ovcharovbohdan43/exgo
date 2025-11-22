@@ -1,12 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import { useTransactions } from '../state/TransactionsProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useMonthlyTotals, useCategoryBreakdown } from '../state/selectors';
 import { formatCurrency } from '../utils/format';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
+import { DonutChartWithPercentages } from '../components/DonutChartWithPercentages';
+import { useThemeStyles } from '../theme/ThemeProvider';
+import { Card } from '../components/layout';
+import { SectionHeader } from '../components/layout';
 
 const DetailsScreen: React.FC = () => {
+  const theme = useThemeStyles();
   const { transactions } = useTransactions();
   const { settings } = useSettings();
   const breakdown = useCategoryBreakdown(transactions);
@@ -14,60 +19,165 @@ const DetailsScreen: React.FC = () => {
 
   const data = Object.entries(breakdown);
 
+  const handleCategoryPress = (category: string) => {
+    // TODO: Navigate to CategoryTransactions screen
+    // For now, this is a placeholder
+    console.log('Category pressed:', category);
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header Section */}
       <View style={styles.header}>
-        <Text style={styles.title}>This month</Text>
-        <Text style={styles.subtitle}>
+        <SectionHeader
+          title="This month"
+          variant="overline"
+          style={styles.sectionHeader}
+        />
+        <Text
+          style={[
+            styles.subtitle,
+            {
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.fontSize.md,
+            },
+          ]}
+        >
           Remaining {formatCurrency(totals.remaining, settings.currency)}
         </Text>
       </View>
-      <FlatList
-        data={data}
-        keyExtractor={([category]) => category}
-        contentContainerStyle={{ gap: 8 }}
-        renderItem={({ item: [category, stats] }) => (
-          <View style={styles.row}>
-            <View style={styles.categoryInfo}>
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
-                <Text style={styles.category}>{category}</Text>
-              </View>
-              <Text style={styles.percent}>{stats.percent.toFixed(1)}%</Text>
-            </View>
-            <Text style={styles.amount}>{formatCurrency(stats.amount, settings.currency)}</Text>
+
+      {/* Donut Chart Section */}
+      <View style={styles.chartSection}>
+        <DonutChartWithPercentages
+          spent={totals.expenses}
+          saved={totals.saved}
+          remaining={totals.chartRemaining}
+          size={240}
+          strokeWidth={24}
+        />
+      </View>
+
+      {/* Categories Section */}
+      <View style={styles.categoriesSection}>
+        <SectionHeader
+          title="Expense Categories"
+          variant="overline"
+          style={styles.sectionHeader}
+        />
+        {data.length === 0 ? (
+          <Card variant="outlined" padding="lg" style={styles.emptyCard}>
+            <Text
+              style={[
+                styles.empty,
+                {
+                  color: theme.colors.textMuted,
+                  fontSize: theme.typography.fontSize.md,
+                },
+              ]}
+            >
+              No expenses yet.
+            </Text>
+          </Card>
+        ) : (
+          <View style={styles.categoriesList}>
+            {data.map(([category, stats]) => (
+              <TouchableOpacity
+                key={category}
+                onPress={() => handleCategoryPress(category)}
+                activeOpacity={0.7}
+              >
+                <Card variant="outlined" padding="md" style={styles.categoryCard}>
+                  <View style={styles.row}>
+                    <View style={styles.categoryInfo}>
+                      <View style={styles.categoryRow}>
+                        <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+                        <Text
+                          style={[
+                            styles.category,
+                            {
+                              color: theme.colors.textPrimary,
+                              fontSize: theme.typography.fontSize.md,
+                              fontWeight: theme.typography.fontWeight.semibold,
+                            },
+                          ]}
+                        >
+                          {category}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.percent,
+                          {
+                            color: theme.colors.textSecondary,
+                            fontSize: theme.typography.fontSize.sm,
+                          },
+                        ]}
+                      >
+                        {stats.percent.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.amount,
+                        {
+                          color: theme.colors.textPrimary,
+                          fontSize: theme.typography.fontSize.lg,
+                          fontWeight: theme.typography.fontWeight.bold,
+                        },
+                      ]}
+                    >
+                      {formatCurrency(stats.amount, settings.currency)}
+                    </Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No expenses yet.</Text>}
-      />
-    </View>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+  },
+  contentContainer: {
     padding: 16,
+    paddingBottom: 32,
   },
   header: {
-    marginBottom: 12,
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
+  sectionHeader: {
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#555',
+    marginTop: 4,
+  },
+  chartSection: {
+    marginBottom: 32,
+  },
+  categoriesSection: {
+    marginTop: 8,
+  },
+  categoriesList: {
+    gap: 12,
+    marginTop: 12,
+  },
+  categoryCard: {
+    marginBottom: 0,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#f6f7fb',
   },
   categoryInfo: {
     flex: 1,
@@ -76,24 +186,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 4,
   },
   categoryEmoji: {
     fontSize: 20,
   },
   category: {
-    fontSize: 16,
-    fontWeight: '600',
+    flex: 1,
   },
   percent: {
-    color: '#777',
+    marginTop: 2,
   },
   amount: {
-    fontWeight: '700',
+    textAlign: 'right',
+  },
+  emptyCard: {
+    marginTop: 12,
   },
   empty: {
     textAlign: 'center',
-    marginTop: 24,
-    color: '#777',
+    paddingVertical: 16,
   },
 });
 
