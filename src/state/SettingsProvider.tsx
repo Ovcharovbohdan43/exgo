@@ -23,6 +23,7 @@ const defaultSettings: UserSettings = {
   currency: 'USD',
   monthlyIncome: 0,
   isOnboarded: false,
+  themePreference: 'system',
 };
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);

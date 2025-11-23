@@ -6,15 +6,17 @@ import * as Sharing from 'expo-sharing';
 import { useSettings } from '../state/SettingsProvider';
 import { useTransactions } from '../state/TransactionsProvider';
 import { resetStorage } from '../services/storage';
-import { useThemeStyles } from '../theme/ThemeProvider';
+import { useThemeStyles, useTheme } from '../theme/ThemeProvider';
 import { MonthPicker } from '../components/MonthPicker';
 import { generateReportHTML, MonthlyReportData } from '../utils/pdfReport';
 import { getMonthKey, formatMonthName } from '../utils/month';
+import { ThemePreference } from '../types';
 
 type TabType = 'personalization' | 'general';
 
 const SettingsScreen: React.FC = () => {
   const theme = useThemeStyles();
+  const { setColorScheme } = useTheme();
   const { settings, updateSettings } = useSettings();
   const { resetTransactions, transactionsByMonth } = useTransactions();
   const [activeTab, setActiveTab] = useState<TabType>('personalization');
@@ -22,6 +24,8 @@ const SettingsScreen: React.FC = () => {
   const [income, setIncome] = useState(String(settings.monthlyIncome));
   const [exportMonth, setExportMonth] = useState(getMonthKey());
   const [isExporting, setIsExporting] = useState(false);
+  
+  const currentThemePreference: ThemePreference = settings.themePreference || 'system';
 
   // Sync local state with settings when they change
   React.useEffect(() => {
@@ -33,6 +37,11 @@ const SettingsScreen: React.FC = () => {
     const monthlyIncome = Number(income) || 0;
     await updateSettings({ currency: currency || 'USD', monthlyIncome });
     Alert.alert('Success', 'Settings saved successfully!');
+  };
+
+  const handleThemeChange = async (preference: ThemePreference) => {
+    await updateSettings({ themePreference: preference });
+    setColorScheme(preference);
   };
 
   const handleExportPDF = async () => {
@@ -132,7 +141,45 @@ const SettingsScreen: React.FC = () => {
   const renderPersonalizationTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.form}>
-        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Currency</Text>
+        <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.xs }]}>
+          Theme
+        </Text>
+        <View style={styles.themeOptions}>
+          {(['light', 'dark', 'system'] as ThemePreference[]).map((option) => {
+            const isSelected = currentThemePreference === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                onPress={() => handleThemeChange(option)}
+                style={[
+                  styles.themeOption,
+                  {
+                    backgroundColor: isSelected ? theme.colors.accent : theme.colors.surface,
+                    borderColor: isSelected ? theme.colors.accent : theme.colors.border,
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.themeOptionText,
+                    {
+                      color: isSelected ? theme.colors.background : theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: isSelected
+                        ? theme.typography.fontWeight.semibold
+                        : theme.typography.fontWeight.medium,
+                    },
+                  ]}
+                >
+                  {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'System'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        
+        <Text style={[styles.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }]}>Currency</Text>
         <TextInput
           value={currency}
           onChangeText={setCurrency}
@@ -409,6 +456,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: 12,
+  },
+  themeOptions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 4,
+  },
+  themeOption: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeOptionText: {
+    textAlign: 'center',
+    textTransform: 'capitalize',
   },
   exportButton: {
     paddingVertical: 14,

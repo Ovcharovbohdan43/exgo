@@ -8,11 +8,14 @@ export interface Transaction {
   createdAt: string; // ISO string
 }
 
+export type ThemePreference = 'light' | 'dark' | 'system';
+
 export interface UserSettings {
   currency: string;
   monthlyIncome: number;
   isOnboarded: boolean;
   firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
+  themePreference?: ThemePreference; // Theme preference: 'light', 'dark', or 'system'
 }
 
 export type NotificationType = 

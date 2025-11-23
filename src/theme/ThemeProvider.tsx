@@ -5,6 +5,7 @@ import { spacing } from './tokens';
 import { typography } from './tokens';
 import { radii } from './tokens';
 import { shadows } from './tokens';
+import { ThemePreference } from '../types';
 
 export interface Theme {
   colors: ThemeColors;
@@ -35,17 +36,24 @@ const createTheme = (colorScheme: ColorScheme): Theme => ({
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultColorScheme?: ColorScheme | 'system';
+  themePreference?: ThemePreference;
+  onThemePreferenceChange?: (preference: ThemePreference) => void;
 };
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
-  defaultColorScheme = 'system',
+  themePreference = 'system',
+  onThemePreferenceChange,
 }) => {
   const systemColorScheme = useRNColorScheme();
   const [preferredScheme, setPreferredScheme] = useState<ColorScheme | 'system'>(
-    defaultColorScheme,
+    themePreference,
   );
+
+  // Update preferred scheme when themePreference prop changes
+  useEffect(() => {
+    setPreferredScheme(themePreference);
+  }, [themePreference]);
 
   const effectiveColorScheme: ColorScheme = useMemo(() => {
     if (preferredScheme === 'system') {
@@ -58,15 +66,22 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 
   const setColorScheme = (scheme: ColorScheme | 'system') => {
     setPreferredScheme(scheme);
-    // TODO: Persist preference to AsyncStorage in Phase 2
+    if (onThemePreferenceChange) {
+      onThemePreferenceChange(scheme as ThemePreference);
+    }
   };
 
   const toggleColorScheme = () => {
     setPreferredScheme((current) => {
-      if (current === 'system') {
-        return systemColorScheme === 'dark' ? 'light' : 'dark';
+      const newScheme = current === 'system'
+        ? (systemColorScheme === 'dark' ? 'light' : 'dark')
+        : (current === 'dark' ? 'light' : 'dark');
+      
+      if (onThemePreferenceChange) {
+        onThemePreferenceChange(newScheme);
       }
-      return current === 'dark' ? 'light' : 'dark';
+      
+      return newScheme;
     });
   };
 

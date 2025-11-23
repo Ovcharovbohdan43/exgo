@@ -7,8 +7,9 @@ import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'rea
 import RootNavigator from './navigation/RootNavigator';
 import { AppProvider } from './state/AppProvider';
 import { ThemeProvider, useThemeStyles } from './theme/ThemeProvider';
-import { useSettings } from './state/SettingsProvider';
+import { SettingsProvider, useSettings } from './state/SettingsProvider';
 import { useTransactions } from './state/TransactionsProvider';
+import { ThemePreference } from './types';
 
 const Loader = () => {
   const theme = useThemeStyles();
@@ -120,16 +121,35 @@ const AppContent = () => {
   );
 };
 
+const ThemeWrapper = () => {
+  const { settings, updateSettings, hydrated } = useSettings();
+  
+  const handleThemePreferenceChange = async (preference: ThemePreference) => {
+    if (hydrated) {
+      await updateSettings({ themePreference: preference });
+    }
+  };
+
+  return (
+    <ThemeProvider
+      themePreference={settings.themePreference || 'system'}
+      onThemePreferenceChange={handleThemePreferenceChange}
+    >
+      <StatusBar style="auto" />
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ThemeProvider>
+  );
+};
+
 const AppRoot = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <AppProvider>
-            <StatusBar style="auto" />
-            <AppContent />
-          </AppProvider>
-        </ThemeProvider>
+        <SettingsProvider>
+          <ThemeWrapper />
+        </SettingsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
