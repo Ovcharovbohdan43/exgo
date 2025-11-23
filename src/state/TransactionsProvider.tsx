@@ -80,6 +80,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
       setCurrentMonthState(monthKey);
       
+      console.log('[TransactionsProvider] Hydrated:', {
+        monthKey,
+        storedCurrentMonth,
+        firstMonthKey: settings.firstMonthKey,
+        transactionsCount: Object.keys(storedTransactions || {}).length,
+      });
+      
       setHydrated(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load transactions';
@@ -96,7 +103,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [settings.firstMonthKey]);
 
   useEffect(() => {
     hydrate();
@@ -166,6 +173,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const txDate = new Date(tx.createdAt);
       const txMonthKey = getMonthKey(txDate);
       
+      console.log('[TransactionsProvider] Adding transaction:', {
+        txMonthKey,
+        currentMonth,
+        txDate: tx.createdAt,
+      });
+      
       // Get current month's transactions or create empty array
       const monthTransactions = transactionsByMonth[txMonthKey] || [];
       const updatedMonthTransactions = [...monthTransactions, tx];
@@ -177,8 +190,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       };
       
       await persist(next);
+      
+      // Automatically switch to the month where transaction was added
+      // This ensures user sees the transaction immediately after adding it
+      if (txMonthKey !== currentMonth) {
+        console.log('[TransactionsProvider] Switching to transaction month:', txMonthKey);
+        await setCurrentMonth(txMonthKey);
+      }
     },
-    [transactionsByMonth, persist],
+    [transactionsByMonth, persist, currentMonth, setCurrentMonth],
   );
 
   const updateTransaction: TransactionsContextValue['updateTransaction'] = useCallback(
