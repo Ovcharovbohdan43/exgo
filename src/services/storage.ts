@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, UserSettings } from '../types';
+import { Transaction, UserSettings, Notification } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
 const CURRENT_MONTH_KEY = 'currentMonth'; // Store current selected month
+const NOTIFICATIONS_KEY = 'notifications';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -236,11 +237,68 @@ export const saveCurrentMonth = async (monthKey: string): Promise<void> => {
 };
 
 /**
- * Reset all storage (clear both keys)
+ * Validate Notification array
+ */
+const validateNotifications = (data: unknown): data is Notification[] => {
+  if (!Array.isArray(data)) return false;
+  return data.every((notif) => {
+    return (
+      typeof notif === 'object' &&
+      notif !== null &&
+      typeof (notif as Notification).id === 'string' &&
+      typeof (notif as Notification).type === 'string' &&
+      typeof (notif as Notification).title === 'string' &&
+      typeof (notif as Notification).message === 'string' &&
+      typeof (notif as Notification).createdAt === 'string' &&
+      typeof (notif as Notification).read === 'boolean'
+    );
+  });
+};
+
+/**
+ * Load notifications from AsyncStorage
+ */
+export const loadNotifications = async (): Promise<Notification[]> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(NOTIFICATIONS_KEY));
+    const parsed = safeParse<Notification[]>(raw);
+    
+    if (parsed && validateNotifications(parsed)) {
+      return parsed;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[Storage] Failed to load notifications:', error);
+    return [];
+  }
+};
+
+/**
+ * Save notifications to AsyncStorage
+ */
+export const saveNotifications = async (notifications: Notification[]): Promise<void> => {
+  try {
+    if (!validateNotifications(notifications)) {
+      throw new Error('Invalid notifications structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save notifications:', error);
+    throw error;
+  }
+};
+
+/**
+ * Reset all storage (clear all keys)
  */
 export const resetStorage = async (): Promise<void> => {
   try {
-    await withRetry(() => AsyncStorage.multiRemove([SETTINGS_KEY, TRANSACTIONS_KEY]));
+    await withRetry(() =>
+      AsyncStorage.multiRemove([SETTINGS_KEY, TRANSACTIONS_KEY, NOTIFICATIONS_KEY, CURRENT_MONTH_KEY]),
+    );
   } catch (error) {
     console.error('[Storage] Failed to reset storage:', error);
     throw error;

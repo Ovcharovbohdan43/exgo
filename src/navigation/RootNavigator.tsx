@@ -2,19 +2,22 @@ import React, { useEffect, useRef } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
 import DetailsScreen from '../screens/DetailsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import { useThemeStyles } from '../theme/ThemeProvider';
-import { SettingsIcon } from '../components/icons';
+import { SettingsIcon, BellIcon } from '../components/icons';
+import { useNotifications } from '../state/NotificationProvider';
 
 export type RootStackParamList = {
   Onboarding: undefined;
   Home: undefined;
   Details: undefined;
   Settings: undefined;
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -39,6 +42,60 @@ const SettingsHeaderButton = () => {
       activeOpacity={0.7}
     >
       <SettingsIcon size={24} color={theme.colors.textPrimary} />
+    </TouchableOpacity>
+  );
+};
+
+// Header button component for Notifications (bell icon with badge)
+// Standardized positioning: marginLeft matches safe area + standard header padding
+const NotificationHeaderButton = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const theme = useThemeStyles();
+  const { unreadCount } = useNotifications();
+
+  return (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Notifications')}
+      style={{ 
+        marginLeft: 16, // Standard header left padding (matches React Navigation default)
+        padding: theme.spacing.xs,
+        position: 'relative',
+      }}
+      activeOpacity={0.7}
+    >
+      <BellIcon size={24} color={theme.colors.textPrimary} />
+      {unreadCount > 0 && (
+        <View
+          style={[
+            styles.badge,
+            {
+              backgroundColor: theme.colors.danger,
+              minWidth: 13, // Reduced by 30% (18 * 0.7 = 12.6, rounded to 13)
+              height: 13, // Reduced by 30% (18 * 0.7 = 12.6, rounded to 13)
+              borderRadius: 6.5, // Half of height
+              paddingHorizontal: unreadCount > 9 ? 3 : 3.5, // Reduced by 30%
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.badgeText,
+              {
+                color: theme.colors.background,
+                fontSize: 8, // Reduced by 30% (10 * 0.7 = 7, rounded to 8)
+                fontWeight: theme.typography.fontWeight.bold,
+              },
+            ]}
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -77,6 +134,7 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         component={HomeScreen}
         options={{
           title: 'Home',
+          headerLeft: () => <NotificationHeaderButton />,
           headerRight: () => <SettingsHeaderButton />,
           contentStyle: {
             paddingTop: 0, // Remove default padding, we'll handle it in component
@@ -99,8 +157,26 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
           presentation: 'modal', // iOS modal presentation
         }}
       />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          title: 'Notifications',
+          presentation: 'modal', // iOS modal presentation
+        }}
+      />
     </Stack.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  badge: {
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  badgeText: {
+    textAlign: 'center',
+  },
+});
 
 export default RootNavigator;

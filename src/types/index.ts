@@ -14,3 +14,15 @@ export interface UserSettings {
   isOnboarded: boolean;
   firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
 }
+
+export type NotificationType = 'monthly_start_high_spending' | 'budget_warning' | 'overspending' | 'achievement' | 'negative_balance';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: string; // ISO string
+  read: boolean;
+  monthKey?: string; // Month key (YYYY-MM) this notification is related to
+}
