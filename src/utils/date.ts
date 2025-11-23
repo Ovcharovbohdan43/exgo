@@ -36,12 +36,15 @@ export const formatDate = (isoDate: string): string => {
 /**
  * Get date key for grouping transactions by date
  * @param isoDate - ISO date string
- * @returns Date key string (YYYY-MM-DD)
+ * @returns Date key string (YYYY-MM-DD) in local timezone
  */
 export const getDateKey = (isoDate: string): string => {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return '';
   
+  // Use local date components to avoid timezone issues
+  // This ensures that a transaction created on Monday in local time
+  // is grouped under Monday, not Sunday (which could happen with UTC)
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');

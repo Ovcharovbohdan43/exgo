@@ -48,8 +48,24 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [error, setError] = useState<TransactionsError | null>(null);
 
   // Get transactions for current selected month
+  // Always sort by date (newest first) to ensure correct order
   const transactions = useMemo(() => {
-    return transactionsByMonth[currentMonth] || [];
+    const monthTransactions = transactionsByMonth[currentMonth] || [];
+    // Sort by date and time (newest first) to ensure correct display order
+    const sorted = [...monthTransactions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    console.log('[TransactionsProvider] Computing transactions for current month:', {
+      currentMonth,
+      transactionsCount: monthTransactions.length,
+      sortedCount: sorted.length,
+      transactionIds: sorted.map(tx => tx.id),
+      firstFewDates: sorted.slice(0, 3).map(tx => ({
+        id: tx.id,
+        date: tx.createdAt,
+      })),
+    });
+    return sorted;
   }, [transactionsByMonth, currentMonth]);
 
   const hasHydratedRef = useRef(false);
@@ -78,13 +94,21 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
       
       if (storedTransactions) {
-        console.log('[TransactionsProvider] Setting transactionsByMonth from storage:', {
-          storedMonths: Object.keys(storedTransactions),
+        // Sort transactions within each month by date (newest first)
+        const sortedByMonth: Record<string, Transaction[]> = {};
+        for (const [monthKey, monthTxs] of Object.entries(storedTransactions)) {
+          sortedByMonth[monthKey] = [...monthTxs].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        }
+        
+        console.log('[TransactionsProvider] Setting transactionsByMonth from storage (sorted):', {
+          storedMonths: Object.keys(sortedByMonth),
           storedCounts: Object.fromEntries(
-            Object.entries(storedTransactions).map(([key, txs]) => [key, txs.length])
+            Object.entries(sortedByMonth).map(([key, txs]) => [key, txs.length])
           ),
         });
-        setTransactionsByMonth(storedTransactions);
+        setTransactionsByMonth(sortedByMonth);
       } else {
         console.log('[TransactionsProvider] No stored transactions, setting empty object');
         setTransactionsByMonth({});
@@ -149,9 +173,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     async (next: Record<string, Transaction[]>): Promise<void> => {
       setError(null);
       
-      // Use functional update to ensure we have the latest state
+      // Log what we're about to persist
       setTransactionsByMonth((prev) => {
-        // Log what we're about to persist
         const prevMonths = Object.keys(prev);
         const nextMonths = Object.keys(next);
         const removedMonths = prevMonths.filter(m => !nextMonths.includes(m));
@@ -172,13 +195,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           ),
           addedMonths,
           removedMonths,
+          prevMonthCounts: Object.fromEntries(
+            Object.entries(prev).map(([key, txs]) => [key, txs.length])
+          ),
         });
         
+        // Always use next (the new value) instead of prev
+        // This ensures we don't lose updates that happened between addTransaction and persist
         return next;
       });
       
       try {
         await saveTransactions(next);
+        console.log('[TransactionsProvider] Transactions saved successfully');
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to save transactions';
         setError({
@@ -188,8 +217,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             await persist(next);
           },
         });
-        // Revert optimistic update on error
-        setTransactionsByMonth((prev) => prev);
+        // Revert optimistic update on error - but use functional update to get current state
+        setTransactionsByMonth((prev) => {
+          console.error('[TransactionsProvider] Save error, reverting state');
+          return prev; // Keep current state on error
+        });
         console.error('[TransactionsProvider] Save error:', err);
         throw err; // Re-throw to allow caller to handle
       }
@@ -298,11 +330,23 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           currentMonth,
           txDate: tx.createdAt,
           availableMonths: Object.keys(prev),
+          prevMonthTransactionsCount: prev[txMonthKey]?.length || 0,
         });
         
         // Get current month's transactions or create empty array
         const monthTransactions = prev[txMonthKey] || [];
-        const updatedMonthTransactions = [...monthTransactions, tx];
+        // Add new transaction at the beginning (newest first)
+        // Then sort to ensure correct order (newest first)
+        const updatedMonthTransactions = [tx, ...monthTransactions].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        
+        console.log('[TransactionsProvider] Transaction array updated:', {
+          txMonthKey,
+          oldCount: monthTransactions.length,
+          newCount: updatedMonthTransactions.length,
+          transactionId: tx.id,
+        });
         
         // Update transactions by month - preserve all existing months
         next = {
@@ -310,10 +354,20 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           [txMonthKey]: updatedMonthTransactions,
         };
         
+        console.log('[TransactionsProvider] Next state prepared:', {
+          txMonthKey,
+          nextMonthTransactionsCount: next[txMonthKey]?.length || 0,
+          allMonths: Object.keys(next),
+        });
+        
         return next;
       });
       
       // Wait for state update, then persist
+      console.log('[TransactionsProvider] About to persist, next state:', {
+        txMonthKey,
+        nextMonthTransactionsCount: next![txMonthKey]?.length || 0,
+      });
       await persist(next!);
       
       // Automatically switch to the month where transaction was added
@@ -330,6 +384,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await setCurrentMonth(txMonthKey);
       } else {
         console.log('[TransactionsProvider] Transaction added to current month:', currentMonthValue);
+        // Verify that state was updated correctly
+        // Force a check by reading current state
+        setTransactionsByMonth((currentState) => {
+          const monthTxs = currentState[txMonthKey] || [];
+          console.log('[TransactionsProvider] Final state verification after add:', {
+            txMonthKey,
+            currentMonth: currentMonthValue,
+            monthTransactionsCount: monthTxs.length,
+            transactionIds: monthTxs.map(tx => tx.id),
+            hasNewTransaction: monthTxs.some(tx => tx.id === tx.id),
+          });
+          return currentState; // Return unchanged to trigger re-render check
+        });
       }
     },
     [persist, setCurrentMonth, currentMonth],

@@ -78,9 +78,18 @@ export const useRecentTransactions = (
   limit: number = 5,
 ) => {
   return useMemo(() => {
-    return [...transactions]
+    const sorted = [...transactions]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit);
+    
+    console.log('[useRecentTransactions] Computing recent transactions:', {
+      inputCount: transactions.length,
+      outputCount: sorted.length,
+      transactionIds: sorted.map(tx => tx.id),
+      limit,
+    });
+    
+    return sorted;
   }, [transactions, limit]);
 };
 

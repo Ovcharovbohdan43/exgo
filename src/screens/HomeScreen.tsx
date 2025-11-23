@@ -28,7 +28,44 @@ const HomeScreen: React.FC = () => {
   const { settings } = useSettings();
   const { transactions, currentMonth, setCurrentMonth, deleteTransaction, hasMonthData } = useTransactions();
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
-  const recentTransactions = useRecentTransactions(transactions, 5);
+  
+  // State for managing how many transactions to show
+  const [displayLimit, setDisplayLimit] = React.useState(10);
+  
+  // Reset display limit when month changes
+  React.useEffect(() => {
+    setDisplayLimit(10);
+  }, [currentMonth]);
+  
+  // Get all transactions sorted by date (newest first) - no limit here
+  const sortedTransactions = React.useMemo(() => {
+    return [...transactions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [transactions]);
+  
+  // Get transactions to display (first displayLimit items)
+  const displayedTransactions = React.useMemo(() => {
+    return sortedTransactions.slice(0, displayLimit);
+  }, [sortedTransactions, displayLimit]);
+  
+  const hasMoreTransactions = sortedTransactions.length > displayLimit;
+  
+  const handleLoadMore = () => {
+    setDisplayLimit(prev => prev + 10);
+  };
+  
+  // Debug: Log transactions when they change
+  React.useEffect(() => {
+    console.log('[HomeScreen] Transactions updated:', {
+      currentMonth,
+      transactionsCount: transactions.length,
+      transactionIds: transactions.map((tx: Transaction) => tx.id),
+      displayedCount: displayedTransactions.length,
+      displayedIds: displayedTransactions.map((tx: Transaction) => tx.id),
+      hasMore: hasMoreTransactions,
+    });
+  }, [transactions, displayedTransactions, currentMonth, hasMoreTransactions]);
   
   // Reset pan position when month changes
   React.useEffect(() => {
@@ -318,9 +355,10 @@ const HomeScreen: React.FC = () => {
             style={styles.sectionHeader}
           />
           <TransactionsList
-            transactions={recentTransactions}
+            transactions={displayedTransactions}
             currency={settings.currency}
-            maxItems={5}
+            hasMore={hasMoreTransactions}
+            onLoadMore={handleLoadMore}
             onTransactionPress={handleTransactionPress}
             onTransactionDelete={handleTransactionDelete}
           />

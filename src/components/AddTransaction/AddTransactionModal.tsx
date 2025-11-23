@@ -150,16 +150,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         ]);
       } else {
         // Add new transaction
-        // Use currentMonth's date if provided, otherwise use current date
-        let createdAt: string;
-        if (currentMonth) {
-          // Use first day of the currentMonth at noon to avoid timezone issues
-          const monthDate = parseMonthKey(currentMonth);
-          monthDate.setHours(12, 0, 0, 0);
-          createdAt = monthDate.toISOString();
-        } else {
-          createdAt = new Date().toISOString();
-        }
+        // Always use current date and time to ensure correct day grouping
+        // This ensures transactions are added to the correct day block
+        const now = new Date();
+        const createdAt = now.toISOString();
         
         await addTransaction({
           type,

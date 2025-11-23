@@ -12,6 +12,8 @@ type TransactionsListProps = {
   transactions: Transaction[];
   currency: string;
   maxItems?: number;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
   onTransactionPress?: (transaction: Transaction) => void;
   onTransactionDelete?: (transaction: Transaction) => void;
   style?: ViewStyle;
@@ -227,21 +229,47 @@ const DateHeader: React.FC<{ dateLabel: string; theme: ReturnType<typeof useThem
 export const TransactionsList: React.FC<TransactionsListProps> = ({
   transactions,
   currency,
-  maxItems = 5,
+  maxItems,
+  hasMore = false,
+  onLoadMore,
   onTransactionPress,
   onTransactionDelete,
   style,
 }) => {
   const theme = useThemeStyles();
 
-  // Group transactions by date and sort
-  const groupedTransactions = React.useMemo(() => {
-    // Sort transactions by date (newest first)
-    const sorted = [...transactions].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+  // Debug: Log received transactions
+  React.useEffect(() => {
+    console.log('[TransactionsList] Received transactions:', {
+      count: transactions.length,
+      transactionIds: transactions.map(tx => tx.id),
+      hasMore,
+    });
+  }, [transactions, hasMore]);
 
-    // Group by date
+  // Group transactions by date and sort
+  // Note: transactions are already sorted by date (newest first) and limited by parent
+  const groupedTransactions = React.useMemo(() => {
+    console.log('[TransactionsList] Grouping transactions:', {
+      inputCount: transactions.length,
+    });
+    
+    // Ensure transactions are sorted by date and time (newest first)
+    // Sort by full timestamp to ensure correct order
+    const sorted = [...transactions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    console.log('[TransactionsList] Sorted transactions (newest first):', {
+      sortedCount: sorted.length,
+      firstFew: sorted.slice(0, 3).map(tx => ({
+        id: tx.id,
+        date: tx.createdAt,
+        dateKey: getDateKey(tx.createdAt),
+      })),
+    });
+    
+    // Group by date (maintaining sort order)
     const groups = new Map<string, Transaction[]>();
     for (const tx of sorted) {
       const dateKey = getDateKey(tx.createdAt);
@@ -250,30 +278,51 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
       if (!groups.has(dateKey)) {
         groups.set(dateKey, []);
       }
+      // Add to group (order is already correct from sorted array)
       groups.get(dateKey)!.push(tx);
     }
-
-    // Convert to array and limit total items
-    const result: GroupedTransaction[] = [];
-    let totalCount = 0;
-
+    
+    // Sort transactions within each date group by time (newest first)
+    // This ensures that within the same date, newer transactions appear first
     for (const [dateKey, txs] of groups.entries()) {
-      if (totalCount >= maxItems) break;
-
-      const remaining = maxItems - totalCount;
-      const transactionsToAdd = txs.slice(0, remaining);
-      
-      result.push({
-        dateKey,
-        dateLabel: formatDateWithDay(transactionsToAdd[0].createdAt),
-        transactions: transactionsToAdd,
-      });
-
-      totalCount += transactionsToAdd.length;
+      txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
+    // Convert to array and sort groups by date (newest first)
+    // Newer dates should appear first in the list
+    const sortedGroups = Array.from(groups.entries()).sort((a, b) => {
+      // Compare dateKeys directly (they're in YYYY-MM-DD format, so string comparison works)
+      // b[0].localeCompare(a[0]) means: if b > a (newer date), return positive (b first)
+      return b[0].localeCompare(a[0]);
+    });
+
+    console.log('[TransactionsList] Sorted groups (newest first):', {
+      groupCount: sortedGroups.length,
+      groupDates: sortedGroups.map(([dateKey]) => dateKey),
+      firstFewGroups: sortedGroups.slice(0, 5).map(([dateKey, txs]) => ({
+        dateKey,
+        transactionCount: txs.length,
+        firstTransactionDate: txs[0]?.createdAt,
+      })),
+    });
+
+    // Convert to result format (no limit here, parent handles limiting)
+    const result: GroupedTransaction[] = [];
+    for (const [dateKey, txs] of sortedGroups) {
+      result.push({
+        dateKey,
+        dateLabel: formatDateWithDay(txs[0].createdAt),
+        transactions: txs, // Include all transactions for this date
+      });
+    }
+
+    console.log('[TransactionsList] Grouped transactions:', {
+      groupsCount: result.length,
+      totalTransactions: result.reduce((sum, group) => sum + group.transactions.length, 0),
+    });
+
     return result;
-  }, [transactions, maxItems]);
+  }, [transactions]);
 
   // Flatten for FlatList
   const flatListData = React.useMemo(() => {
@@ -286,8 +335,18 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
       }
     }
 
+    console.log('[TransactionsList] FlatList data prepared:', {
+      itemsCount: items.length,
+      groupsCount: groupedTransactions.length,
+    });
+    
     return items;
   }, [groupedTransactions]);
+
+  console.log('[TransactionsList] Rendering with flatListData:', {
+    flatListDataLength: flatListData.length,
+    hasData: flatListData.length > 0,
+  });
 
   if (flatListData.length === 0) {
     return (
@@ -342,6 +401,32 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
       />
+      
+      {/* Load More Button */}
+      {hasMore && onLoadMore && (
+        <TouchableOpacity
+          onPress={onLoadMore}
+          style={[
+            styles.loadMoreButton,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.loadMoreText,
+              {
+                color: theme.colors.primary,
+                fontSize: theme.typography.fontSize.sm,
+              },
+            ]}
+          >
+            Load More
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -426,6 +511,18 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  loadMoreButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreText: {
     fontWeight: '600',
   },
 });
