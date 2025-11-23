@@ -11,10 +11,13 @@ type Props = {
   size?: number;
   strokeWidth?: number;
   style?: ViewStyle;
-  centerLabel?: string; // Optional label to display in the center
+  centerLabel?: string; // Optional label to display in the center (string)
+  centerLabelValue?: number; // Optional numeric value for animated counter
+  centerLabelCurrency?: string; // Currency code for animated counter
   centerLabelColor?: string; // Optional color for center label
   centerSubLabel?: string; // Optional sub-label to display below center label
   centerSubLabelColor?: string; // Optional color for sub-label
+  animationTrigger?: number; // Trigger to reset and restart animation
 };
 
 /**
@@ -29,9 +32,12 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
   strokeWidth = 24,
   style,
   centerLabel,
+  centerLabelValue,
+  centerLabelCurrency,
   centerLabelColor,
   centerSubLabel,
   centerSubLabelColor,
+  animationTrigger,
 }) => {
   const theme = useThemeStyles();
   const clampedRemaining = Math.max(remaining, 0);
@@ -55,9 +61,12 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
         strokeWidth={strokeWidth}
         showLabels={false}
         centerLabel={centerLabel}
+        centerLabelValue={centerLabelValue}
+        centerLabelCurrency={centerLabelCurrency}
         centerLabelColor={centerLabelColor}
         centerSubLabel={centerSubLabel}
         centerSubLabelColor={centerSubLabelColor}
+        animationTrigger={animationTrigger}
       />
       
       <View style={styles.legend}>

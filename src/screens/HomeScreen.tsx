@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Animated, PanResponder, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SectionHeader } from '../components/layout';
 import DonutChart from '../components/DonutChart';
@@ -37,6 +37,17 @@ const HomeScreen: React.FC = () => {
   
   const [modalVisible, setModalVisible] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+  
+  // Animation key for DonutChart - changes on focus to trigger animation
+  const [chartAnimationKey, setChartAnimationKey] = useState(0);
+  
+  // Trigger animation when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Increment key to trigger animation reset in DonutChart
+      setChartAnimationKey(prev => prev + 1);
+    }, [])
+  );
   
   // Swipe navigation state
   const pan = useRef(new Animated.ValueXY()).current;
@@ -198,6 +209,7 @@ const HomeScreen: React.FC = () => {
         {/* Donut Chart Section */}
         <View style={styles.chartSection}>
           <DonutChart
+            animationTrigger={chartAnimationKey}
             spent={totals.expenses}
             saved={totals.saved}
             remaining={totals.chartRemaining}
@@ -205,7 +217,8 @@ const HomeScreen: React.FC = () => {
             strokeWidth={20}
             onPress={handleChartPress}
             showLabels={false}
-            centerLabel={formatCurrency(totals.remaining, settings.currency)}
+            centerLabelValue={totals.remaining}
+            centerLabelCurrency={settings.currency}
             centerLabelColor={remainingColor}
             centerSubLabel={`Of ${formatCurrency(totals.income, settings.currency)} total\n${formatMonthShort(currentMonth)}`}
             centerSubLabelColor={theme.colors.textSecondary}

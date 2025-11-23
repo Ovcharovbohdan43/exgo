@@ -1,7 +1,8 @@
-import React, { useMemo, useEffect, useState, useRef } from 'react';
-import { TouchableOpacity, View, Text, StyleSheet, ViewStyle, Animated } from 'react-native';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
+import { TouchableOpacity, View, Text, StyleSheet, ViewStyle, Animated, Easing } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useThemeStyles } from '../theme/ThemeProvider';
+import { AnimatedCurrencyCounter } from './AnimatedCurrencyCounter';
 
 type Props = {
   spent: number;
@@ -12,10 +13,13 @@ type Props = {
   onPress?: () => void;
   showLabels?: boolean;
   style?: ViewStyle;
-  centerLabel?: string; // Optional label to display in the center
+  centerLabel?: string; // Optional label to display in the center (string)
+  centerLabelValue?: number; // Optional numeric value for animated counter
+  centerLabelCurrency?: string; // Currency code for animated counter
   centerLabelColor?: string; // Optional color for center label
   centerSubLabel?: string; // Optional sub-label to display below center label
   centerSubLabelColor?: string; // Optional color for sub-label
+  animationTrigger?: number; // Trigger to reset and restart animation
 };
 
 const DonutChart: React.FC<Props> = ({
@@ -28,9 +32,12 @@ const DonutChart: React.FC<Props> = ({
   showLabels = false,
   style,
   centerLabel,
+  centerLabelValue,
+  centerLabelCurrency,
   centerLabelColor,
   centerSubLabel,
   centerSubLabelColor,
+  animationTrigger,
 }) => {
   const theme = useThemeStyles();
   const radius = (size - strokeWidth) / 2;
@@ -49,84 +56,108 @@ const DonutChart: React.FC<Props> = ({
     ];
   }, [remaining, saved, spent, theme.colors]);
 
-  // Animated values for each segment
-  const [animatedSegments, setAnimatedSegments] = useState(targetSegments);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelledRef = useRef(false);
+  // Animated values for each segment (0 to 1)
+  const animatedValues = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
-  // Animate segments when values change
+  // State to hold current animated segment values for rendering
+  // Initialize with zero values for smooth initial animation
+  const [animatedSegments, setAnimatedSegments] = useState(() =>
+    targetSegments.map(seg => ({ ...seg, value: 0 }))
+  );
+
+  // Store previous values to animate from
+  const prevValuesRef = useRef([0, 0, 0]);
+  const isMountedRef = useRef(false);
+
+  // Update state when animated values change
   useEffect(() => {
-    // Clear any existing animation
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    cancelledRef.current = false;
-
-    setAnimatedSegments(prev => {
-      // Check if values actually changed
-      const hasChanged = targetSegments.some((target, index) => {
-        const current = prev[index]?.value || 0;
-        return Math.abs(target.value - current) > 0.001;
-      });
-
-      if (!hasChanged) {
-        return targetSegments;
-      }
-
-      // Start animation
-      const startTime = Date.now();
-      const duration = 600; // ms
-      const startValues = prev.map(s => s.value);
-
-      const animate = () => {
-        if (cancelledRef.current) return;
-
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing function (ease-out)
-        const eased = 1 - Math.pow(1 - progress, 3);
-
-        setAnimatedSegments(current => {
-          if (cancelledRef.current) return current;
-
-          const newSegments = current.map((prevSeg, index) => {
-            const target = targetSegments[index];
-            const start = startValues[index];
-            const currentValue = start + (target.value - start) * eased;
-            
-            return {
-              ...prevSeg,
-              value: currentValue,
+    const listeners = animatedValues.map((animatedValue, index) => {
+      return animatedValue.addListener(({ value }) => {
+        setAnimatedSegments(prev => {
+          const newSegments = [...prev];
+          if (newSegments[index]) {
+            newSegments[index] = {
+              ...newSegments[index],
+              value,
             };
-          });
-
-          // Continue animation if not complete
-          if (progress < 1 && !cancelledRef.current) {
-            timeoutRef.current = setTimeout(animate, 16); // ~60fps
-          } else if (progress >= 1) {
-            // Ensure final values are set
-            return targetSegments;
+          } else {
+            newSegments[index] = {
+              ...targetSegments[index],
+              value,
+            };
           }
-
           return newSegments;
         });
-      };
-
-      timeoutRef.current = setTimeout(animate, 16);
-
-      return prev; // Return current state to start animation
+      });
     });
 
     return () => {
-      cancelledRef.current = true;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      animatedValues.forEach((animatedValue, index) => {
+        animatedValue.removeListener(listeners[index]);
+      });
     };
+  }, [animatedValues, targetSegments]);
+
+  // Update segment colors when target segments change
+  useEffect(() => {
+    setAnimatedSegments(prev => {
+      return prev.map((segment, index) => ({
+        ...segment,
+        color: targetSegments[index]?.color || segment.color,
+      }));
+    });
   }, [targetSegments]);
+
+  // Store previous animation trigger to detect changes
+  const prevAnimationTriggerRef = useRef(animationTrigger);
+
+  // Animate segments when values change or animationTrigger changes
+  useEffect(() => {
+    // Check if animation trigger changed (force reset)
+    const triggerChanged = animationTrigger !== undefined && 
+                          animationTrigger !== prevAnimationTriggerRef.current;
+    
+    if (triggerChanged) {
+      prevAnimationTriggerRef.current = animationTrigger;
+      // Reset to 0 and animate from scratch
+      prevValuesRef.current = [0, 0, 0];
+      isMountedRef.current = false;
+    }
+
+    // Check if values actually changed
+    const hasChanged = targetSegments.some((target, index) => {
+      const current = prevValuesRef.current[index] || 0;
+      return Math.abs(target.value - current) > 0.001;
+    });
+
+    if (!hasChanged && isMountedRef.current && !triggerChanged) {
+      return;
+    }
+
+    // Start animations for each segment
+    const animations = targetSegments.map((target, index) => {
+      const startValue = triggerChanged ? 0 : (isMountedRef.current ? (prevValuesRef.current[index] || 0) : 0);
+      animatedValues[index].setValue(startValue);
+      
+      return Animated.timing(animatedValues[index], {
+        toValue: target.value,
+        duration: triggerChanged || !isMountedRef.current ? 1000 : 800, // Longer on initial mount or reset
+        easing: Easing.out(Easing.cubic), // Smooth ease-out curve
+        useNativeDriver: false, // Can't use native driver for SVG
+      });
+    });
+
+    // Run all animations in parallel
+    Animated.parallel(animations).start(() => {
+      // Update previous values after animation completes
+      prevValuesRef.current = targetSegments.map(s => s.value);
+      isMountedRef.current = true;
+    });
+  }, [targetSegments, animatedValues, animationTrigger]);
 
   const segments = animatedSegments;
   let offset = 0;
@@ -155,7 +186,37 @@ const DonutChart: React.FC<Props> = ({
         })}
       </Svg>
       <View style={styles.labels}>
-        {centerLabel ? (
+        {centerLabelValue !== undefined ? (
+          <>
+            <AnimatedCurrencyCounter
+              value={centerLabelValue}
+              currency={centerLabelCurrency}
+              duration={1500}
+              animationTrigger={animationTrigger}
+              style={[
+                styles.centerLabel,
+                {
+                  color: centerLabelColor || theme.colors.textPrimary,
+                  fontSize: (theme.typography.fontSize.display || 32) * 0.8, // 20% smaller
+                  fontWeight: theme.typography.fontWeight.bold,
+                },
+              ]}
+            />
+            {centerSubLabel && (
+              <Text
+                style={[
+                  styles.centerSubLabel,
+                  {
+                    color: centerSubLabelColor || theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.sm,
+                  },
+                ]}
+              >
+                {centerSubLabel}
+              </Text>
+            )}
+          </>
+        ) : centerLabel ? (
           <>
             <Text
               style={[

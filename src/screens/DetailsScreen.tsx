@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTransactions } from '../state/TransactionsProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useMonthlyTotals, useCategoryBreakdown } from '../state/selectors';
@@ -17,6 +18,17 @@ const DetailsScreen: React.FC = () => {
   const { settings } = useSettings();
   const breakdown = useCategoryBreakdown(transactions);
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
+  
+  // Animation key for DonutChart - changes on focus to trigger animation
+  const [chartAnimationKey, setChartAnimationKey] = useState(0);
+  
+  // Trigger animation when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Increment key to trigger animation reset in DonutChart
+      setChartAnimationKey(prev => prev + 1);
+    }, [])
+  );
 
   const data = Object.entries(breakdown);
 
@@ -49,10 +61,12 @@ const DetailsScreen: React.FC = () => {
           remaining={totals.chartRemaining}
           size={240}
           strokeWidth={24}
-          centerLabel={formatCurrency(totals.remaining, settings.currency)}
+          centerLabelValue={totals.remaining}
+          centerLabelCurrency={settings.currency}
           centerLabelColor={totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary}
           centerSubLabel={`${totals.remaining < 0 ? 'Over budget' : 'Remaining'}\n${formatMonthShort(currentMonth)}`}
           centerSubLabelColor={theme.colors.textSecondary}
+          animationTrigger={chartAnimationKey}
         />
       </View>
 
