@@ -15,7 +15,15 @@ export interface UserSettings {
   firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
 }
 
-export type NotificationType = 'monthly_start_high_spending' | 'budget_warning' | 'overspending' | 'achievement' | 'negative_balance';
+export type NotificationType = 
+  | 'monthly_start_high_spending' 
+  | 'budget_warning' 
+  | 'overspending' 
+  | 'achievement' 
+  | 'negative_balance'
+  | 'overspending_50_percent'
+  | 'large_expense_spike'
+  | 'low_balance_20_percent';
 
 export interface Notification {
   id: string;

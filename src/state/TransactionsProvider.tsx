@@ -4,6 +4,7 @@ import { loadTransactions, saveTransactions, loadCurrentMonth, saveCurrentMonth 
 import { Transaction, TransactionType } from '../types';
 import { getMonthKey, getPreviousMonthKey, getNextMonthKey } from '../utils/month';
 import { useSettings } from './SettingsProvider';
+import { calculateTotals } from '../modules/calculations';
 
 export type TransactionsError = {
   message: string;
@@ -498,6 +499,160 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [transactionsByMonth],
   );
 
+  // Track if we've already processed balance carryover for the current month
+  const balanceCarryoverProcessedRef = useRef<Set<string>>(new Set());
+
+  // Remove carryover transactions from actual current month (should not have carryover)
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    const now = new Date();
+    const actualCurrentMonthKey = getMonthKey(now); // Real current month based on system date
+    const currentMonthTransactions = transactionsByMonth[actualCurrentMonthKey] || [];
+
+    // Find and remove any carryover transactions from current month
+    const carryoverTransactions = currentMonthTransactions.filter(
+      (tx) => tx.type === 'income' && tx.category === 'Remaining from last month'
+    );
+
+    if (carryoverTransactions.length > 0) {
+      console.log('[TransactionsProvider] Removing carryover transactions from current month:', {
+        actualCurrentMonthKey,
+        carryoverCount: carryoverTransactions.length,
+        carryoverIds: carryoverTransactions.map((tx) => tx.id),
+      });
+
+      setTransactionsByMonth((prev) => {
+        const currentMonthTxs = prev[actualCurrentMonthKey] || [];
+        const filteredTxs = currentMonthTxs.filter(
+          (tx) => !(tx.type === 'income' && tx.category === 'Remaining from last month')
+        );
+
+        const next = {
+          ...prev,
+          [actualCurrentMonthKey]: filteredTxs,
+        };
+
+        // Persist the updated transactions
+        persist(next).catch(console.error);
+
+        return next;
+      });
+    }
+  }, [hydrated, transactionsByMonth, persist]);
+
+  // Auto-carryover remaining balance from previous month to new month
+  // Only applies when switching to a NEW month (not the current active month)
+  useEffect(() => {
+    if (!hydrated || !settings.monthlyIncome || settings.monthlyIncome <= 0) {
+      return;
+    }
+
+    const now = new Date();
+    const actualCurrentMonthKey = getMonthKey(now); // Real current month based on system date
+    const selectedMonthKey = currentMonth; // Month user is viewing
+
+    // Only process carryover for months that are NOT the actual current month
+    // This prevents applying carryover to the month user is currently working in
+    if (selectedMonthKey === actualCurrentMonthKey) {
+      return;
+    }
+
+    // Only process for future months (months after the actual current month)
+    // This ensures we only carryover when moving forward, not backward
+    const selectedDate = new Date(selectedMonthKey + '-01');
+    const actualCurrentDate = new Date(actualCurrentMonthKey + '-01');
+    if (selectedDate <= actualCurrentDate) {
+      return;
+    }
+
+    // Check if we've already processed carryover for this selected month
+    if (balanceCarryoverProcessedRef.current.has(selectedMonthKey)) {
+      return;
+    }
+
+    // Get previous month key (month before the selected month)
+    const previousMonthKey = getPreviousMonthKey(selectedMonthKey);
+    const previousMonthTransactions = transactionsByMonth[previousMonthKey] || [];
+
+    // Calculate remaining balance from previous month
+    const previousTotals = calculateTotals(previousMonthTransactions, settings.monthlyIncome);
+
+    // Only carryover if there's a positive remaining balance
+    if (previousTotals.remaining > 0) {
+      // Check if carryover transaction already exists in selected month
+      const selectedMonthTransactions = transactionsByMonth[selectedMonthKey] || [];
+      const hasCarryoverTransaction = selectedMonthTransactions.some(
+        (tx) => tx.type === 'income' && tx.category === 'Remaining from last month'
+      );
+
+      if (!hasCarryoverTransaction) {
+        // Parse selected month to get the first day
+        const [year, month] = selectedMonthKey.split('-').map(Number);
+        const firstDayOfSelectedMonth = new Date(year, month - 1, 1, 12, 0, 0, 0);
+
+        // Create income transaction for the carryover amount
+        const carryoverTransaction: Transaction = {
+          id: uuidv4(),
+          type: 'income',
+          amount: previousTotals.remaining,
+          category: 'Remaining from last month',
+          createdAt: firstDayOfSelectedMonth.toISOString(),
+        };
+
+        // Add the carryover transaction
+        setTransactionsByMonth((prev) => {
+          const selectedMonthTxs = prev[selectedMonthKey] || [];
+          const updatedMonthTxs = [carryoverTransaction, ...selectedMonthTxs].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+          const next = {
+            ...prev,
+            [selectedMonthKey]: updatedMonthTxs,
+          };
+
+          // Persist the new transaction
+          persist(next).catch(console.error);
+
+          console.log('[TransactionsProvider] Created balance carryover transaction:', {
+            selectedMonthKey,
+            actualCurrentMonthKey,
+            previousMonthKey,
+            carryoverAmount: previousTotals.remaining,
+            transactionId: carryoverTransaction.id,
+          });
+
+          return next;
+        });
+
+        // Mark this month as processed
+        balanceCarryoverProcessedRef.current.add(selectedMonthKey);
+      } else {
+        // Already has carryover transaction, just mark as processed
+        balanceCarryoverProcessedRef.current.add(selectedMonthKey);
+      }
+    } else {
+      // No balance to carryover, but mark as processed to avoid re-checking
+      balanceCarryoverProcessedRef.current.add(selectedMonthKey);
+    }
+  }, [hydrated, currentMonth, transactionsByMonth, settings.monthlyIncome, persist]);
+
+  // Clear processed months when switching to a different month (for testing/debugging)
+  useEffect(() => {
+    // Keep only current and previous month in the processed set to avoid memory leaks
+    const now = new Date();
+    const currentMonthKey = getMonthKey(now);
+    const previousMonthKey = getPreviousMonthKey(currentMonthKey);
+    
+    balanceCarryoverProcessedRef.current.forEach((monthKey) => {
+      if (monthKey !== currentMonthKey && monthKey !== previousMonthKey) {
+        balanceCarryoverProcessedRef.current.delete(monthKey);
+      }
+    });
+  }, [currentMonth]);
 
   const retryHydration = useCallback(async () => {
     await hydrate();
