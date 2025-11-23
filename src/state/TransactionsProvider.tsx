@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { loadTransactions, saveTransactions, loadCurrentMonth, saveCurrentMonth } from '../services/storage';
 import { Transaction, TransactionType } from '../types';
@@ -52,7 +52,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return transactionsByMonth[currentMonth] || [];
   }, [transactionsByMonth, currentMonth]);
 
+  const hasHydratedRef = useRef(false);
+  
   const hydrate = useCallback(async () => {
+    // Only hydrate once on mount
+    if (hasHydratedRef.current) {
+      console.log('[TransactionsProvider] Already hydrated, skipping re-hydration');
+      return;
+    }
+    
+    hasHydratedRef.current = true;
     setLoading(true);
     setError(null);
     
@@ -62,9 +71,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         loadCurrentMonth(),
       ]);
       
+      console.log('[TransactionsProvider] Loading from storage:', {
+        storedMonths: storedTransactions ? Object.keys(storedTransactions) : [],
+        storedCurrentMonth,
+        firstMonthKey: settings.firstMonthKey,
+      });
+      
       if (storedTransactions) {
+        console.log('[TransactionsProvider] Setting transactionsByMonth from storage:', {
+          storedMonths: Object.keys(storedTransactions),
+          storedCounts: Object.fromEntries(
+            Object.entries(storedTransactions).map(([key, txs]) => [key, txs.length])
+          ),
+        });
         setTransactionsByMonth(storedTransactions);
       } else {
+        console.log('[TransactionsProvider] No stored transactions, setting empty object');
         setTransactionsByMonth({});
       }
       
@@ -85,6 +107,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         storedCurrentMonth,
         firstMonthKey: settings.firstMonthKey,
         transactionsCount: Object.keys(storedTransactions || {}).length,
+        allMonths: storedTransactions ? Object.keys(storedTransactions) : [],
       });
       
       setHydrated(true);
@@ -125,8 +148,35 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const persist = useCallback(
     async (next: Record<string, Transaction[]>): Promise<void> => {
       setError(null);
-      // Optimistic update: update state immediately for better UX
-      setTransactionsByMonth(next);
+      
+      // Use functional update to ensure we have the latest state
+      setTransactionsByMonth((prev) => {
+        // Log what we're about to persist
+        const prevMonths = Object.keys(prev);
+        const nextMonths = Object.keys(next);
+        const removedMonths = prevMonths.filter(m => !nextMonths.includes(m));
+        const addedMonths = nextMonths.filter(m => !prevMonths.includes(m));
+        
+        if (removedMonths.length > 0) {
+          console.warn('[TransactionsProvider] WARNING: Months will be removed during persist:', {
+            removedMonths,
+            prevMonths,
+            nextMonths,
+          });
+        }
+        
+        console.log('[TransactionsProvider] Persisting transactions:', {
+          months: nextMonths,
+          monthCounts: Object.fromEntries(
+            Object.entries(next).map(([key, txs]) => [key, txs.length])
+          ),
+          addedMonths,
+          removedMonths,
+        });
+        
+        return next;
+      });
+      
       try {
         await saveTransactions(next);
       } catch (err) {
@@ -138,7 +188,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             await persist(next);
           },
         });
-        // State is already updated optimistically, so UI stays consistent
+        // Revert optimistic update on error
+        setTransactionsByMonth((prev) => prev);
         console.error('[TransactionsProvider] Save error:', err);
         throw err; // Re-throw to allow caller to handle
       }
@@ -148,7 +199,73 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const setCurrentMonth: TransactionsContextValue['setCurrentMonth'] = useCallback(
     async (monthKey: string) => {
-      setCurrentMonthState(monthKey);
+      // Get current state values for logging
+      let prevMonthValue: string;
+      let availableMonthsValue: string[];
+      
+      setCurrentMonthState((prevMonth) => {
+        prevMonthValue = prevMonth;
+        return monthKey;
+      });
+      
+      // Sync with storage to ensure we have the latest data for all months
+      // This is important because data might have been saved in another session
+      // or after a reload. Storage is the source of truth.
+      // Use Promise.race to prevent blocking if storage is slow
+      try {
+        const syncPromise = loadTransactions();
+        const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => resolve(null), 500) // 500ms timeout
+        );
+        
+        const storedTransactions = await Promise.race([syncPromise, timeoutPromise]);
+        
+        if (storedTransactions) {
+          // Use stored data as the source of truth
+          // This ensures we always have the latest data from storage
+          setTransactionsByMonth(storedTransactions);
+          
+          availableMonthsValue = Object.keys(storedTransactions);
+          console.log('[TransactionsProvider] Setting current month (synced with storage):', {
+            from: prevMonthValue!,
+            to: monthKey,
+            availableMonths: availableMonthsValue,
+            transactionsByMonthKeys: Object.keys(storedTransactions),
+            transactionsByMonthCounts: Object.fromEntries(
+              Object.entries(storedTransactions).map(([key, txs]) => [key, txs.length])
+            ),
+            storedMonths: Object.keys(storedTransactions),
+          });
+        } else {
+          // No stored data or timeout, just log current state
+          setTransactionsByMonth((prevTransactions) => {
+            availableMonthsValue = Object.keys(prevTransactions);
+            console.log('[TransactionsProvider] Setting current month (no stored data or timeout):', {
+              from: prevMonthValue!,
+              to: monthKey,
+              availableMonths: availableMonthsValue,
+              transactionsByMonthKeys: Object.keys(prevTransactions),
+              transactionsByMonthCounts: Object.fromEntries(
+                Object.entries(prevTransactions).map(([key, txs]) => [key, txs.length])
+              ),
+            });
+            return prevTransactions;
+          });
+        }
+      } catch (err) {
+        console.error('[TransactionsProvider] Failed to sync with storage:', err);
+        // Continue with current state if sync fails - don't block month switching
+        setTransactionsByMonth((prevTransactions) => {
+          availableMonthsValue = Object.keys(prevTransactions);
+          console.log('[TransactionsProvider] Setting current month (sync failed, using current state):', {
+            from: prevMonthValue!,
+            to: monthKey,
+            availableMonths: availableMonthsValue,
+          });
+          return prevTransactions;
+        });
+      }
+      
       try {
         await saveCurrentMonth(monthKey);
       } catch (err) {
@@ -173,100 +290,133 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const txDate = new Date(tx.createdAt);
       const txMonthKey = getMonthKey(txDate);
       
-      console.log('[TransactionsProvider] Adding transaction:', {
-        txMonthKey,
-        currentMonth,
-        txDate: tx.createdAt,
+      // Use functional update to ensure we have the latest state
+      let next: Record<string, Transaction[]>;
+      setTransactionsByMonth((prev) => {
+        console.log('[TransactionsProvider] Adding transaction:', {
+          txMonthKey,
+          currentMonth,
+          txDate: tx.createdAt,
+          availableMonths: Object.keys(prev),
+        });
+        
+        // Get current month's transactions or create empty array
+        const monthTransactions = prev[txMonthKey] || [];
+        const updatedMonthTransactions = [...monthTransactions, tx];
+        
+        // Update transactions by month - preserve all existing months
+        next = {
+          ...prev,
+          [txMonthKey]: updatedMonthTransactions,
+        };
+        
+        return next;
       });
       
-      // Get current month's transactions or create empty array
-      const monthTransactions = transactionsByMonth[txMonthKey] || [];
-      const updatedMonthTransactions = [...monthTransactions, tx];
-      
-      // Update transactions by month
-      const next = {
-        ...transactionsByMonth,
-        [txMonthKey]: updatedMonthTransactions,
-      };
-      
-      await persist(next);
+      // Wait for state update, then persist
+      await persist(next!);
       
       // Automatically switch to the month where transaction was added
       // This ensures user sees the transaction immediately after adding it
-      if (txMonthKey !== currentMonth) {
-        console.log('[TransactionsProvider] Switching to transaction month:', txMonthKey);
+      // Note: If transaction is added to currentMonth (which is the normal case),
+      // this condition will be false and no switch will occur
+      // Use currentMonth from state, not from closure
+      const currentMonthValue = currentMonth;
+      if (txMonthKey !== currentMonthValue) {
+        console.log('[TransactionsProvider] Transaction added to different month, switching:', {
+          txMonthKey,
+          currentMonth: currentMonthValue,
+        });
         await setCurrentMonth(txMonthKey);
+      } else {
+        console.log('[TransactionsProvider] Transaction added to current month:', currentMonthValue);
       }
     },
-    [transactionsByMonth, persist, currentMonth, setCurrentMonth],
+    [persist, setCurrentMonth, currentMonth],
   );
 
   const updateTransaction: TransactionsContextValue['updateTransaction'] = useCallback(
     async (id: string, { amount, type, category, createdAt }) => {
-      // Find which month contains this transaction
+      // Use functional update to ensure we have the latest state
+      let next: Record<string, Transaction[]>;
       let foundMonthKey: string | null = null;
-      for (const [monthKey, monthTransactions] of Object.entries(transactionsByMonth)) {
-        if (monthTransactions.some((tx) => tx.id === id)) {
-          foundMonthKey = monthKey;
-          break;
+      
+      setTransactionsByMonth((prev) => {
+        // Find which month contains this transaction
+        for (const [monthKey, monthTransactions] of Object.entries(prev)) {
+          if (monthTransactions.some((tx) => tx.id === id)) {
+            foundMonthKey = monthKey;
+            break;
+          }
         }
-      }
+        
+        if (!foundMonthKey) {
+          throw new Error(`Transaction ${id} not found`);
+        }
+        
+        // Update transaction in its month
+        const monthTransactions = prev[foundMonthKey];
+        const updatedMonthTransactions = monthTransactions.map((tx) =>
+          tx.id === id
+            ? {
+                ...tx,
+                amount,
+                type,
+                category,
+                createdAt: createdAt ?? tx.createdAt,
+              }
+            : tx
+        );
+        
+        // Preserve all existing months
+        next = {
+          ...prev,
+          [foundMonthKey]: updatedMonthTransactions,
+        };
+        
+        return next;
+      });
       
-      if (!foundMonthKey) {
-        throw new Error(`Transaction ${id} not found`);
-      }
-      
-      // Update transaction in its month
-      const monthTransactions = transactionsByMonth[foundMonthKey];
-      const updatedMonthTransactions = monthTransactions.map((tx) =>
-        tx.id === id
-          ? {
-              ...tx,
-              amount,
-              type,
-              category,
-              createdAt: createdAt ?? tx.createdAt,
-            }
-          : tx
-      );
-      
-      const next = {
-        ...transactionsByMonth,
-        [foundMonthKey]: updatedMonthTransactions,
-      };
-      
-      await persist(next);
+      await persist(next!);
     },
-    [transactionsByMonth, persist],
+    [persist],
   );
 
   const deleteTransaction: TransactionsContextValue['deleteTransaction'] = useCallback(
     async (id: string) => {
-      // Find which month contains this transaction
+      // Use functional update to ensure we have the latest state
+      let next: Record<string, Transaction[]>;
       let foundMonthKey: string | null = null;
-      for (const [monthKey, monthTransactions] of Object.entries(transactionsByMonth)) {
-        if (monthTransactions.some((tx) => tx.id === id)) {
-          foundMonthKey = monthKey;
-          break;
+      
+      setTransactionsByMonth((prev) => {
+        // Find which month contains this transaction
+        for (const [monthKey, monthTransactions] of Object.entries(prev)) {
+          if (monthTransactions.some((tx) => tx.id === id)) {
+            foundMonthKey = monthKey;
+            break;
+          }
         }
-      }
+        
+        if (!foundMonthKey) {
+          throw new Error(`Transaction ${id} not found`);
+        }
+        
+        // Remove transaction from its month
+        const monthTransactions = prev[foundMonthKey];
+        const updatedMonthTransactions = monthTransactions.filter((tx) => tx.id !== id);
+        
+        // Preserve all existing months (even if empty after deletion)
+        next = {
+          ...prev,
+          [foundMonthKey]: updatedMonthTransactions,
+        };
+        
+        return next;
+      });
       
-      if (!foundMonthKey) {
-        throw new Error(`Transaction ${id} not found`);
-      }
-      
-      // Remove transaction from its month
-      const monthTransactions = transactionsByMonth[foundMonthKey];
-      const updatedMonthTransactions = monthTransactions.filter((tx) => tx.id !== id);
-      
-      const next = {
-        ...transactionsByMonth,
-        [foundMonthKey]: updatedMonthTransactions,
-      };
-      
-      await persist(next);
+      await persist(next!);
     },
-    [transactionsByMonth, persist],
+    [persist],
   );
 
   const resetTransactions = useCallback(async () => {

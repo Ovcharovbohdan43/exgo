@@ -7,11 +7,13 @@ import { TransactionType, Transaction } from '../../types';
 import { AmountInputStep } from './AmountInputStep';
 import { CategorySelectionStep } from './CategorySelectionStep';
 import { ConfirmStep } from './ConfirmStep';
+import { parseMonthKey } from '../../utils/month';
 
 type AddTransactionModalProps = {
   visible: boolean;
   initialType?: TransactionType;
   transactionToEdit?: Transaction | null; // Transaction to edit (if provided, modal works in edit mode)
+  currentMonth?: string; // Current month key (YYYY-MM) - if provided, new transactions will use this month's date
   onClose: () => void;
 };
 
@@ -25,6 +27,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   visible,
   initialType,
   transactionToEdit,
+  currentMonth,
   onClose,
 }) => {
   const theme = useThemeStyles();
@@ -147,11 +150,22 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         ]);
       } else {
         // Add new transaction
+        // Use currentMonth's date if provided, otherwise use current date
+        let createdAt: string;
+        if (currentMonth) {
+          // Use first day of the currentMonth at noon to avoid timezone issues
+          const monthDate = parseMonthKey(currentMonth);
+          monthDate.setHours(12, 0, 0, 0);
+          createdAt = monthDate.toISOString();
+        } else {
+          createdAt = new Date().toISOString();
+        }
+        
         await addTransaction({
           type,
           amount: numAmount,
           category,
-          createdAt: new Date().toISOString(),
+          createdAt,
         });
 
         const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';

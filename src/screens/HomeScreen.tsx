@@ -52,6 +52,7 @@ const HomeScreen: React.FC = () => {
   // Swipe navigation state
   const pan = useRef(new Animated.ValueXY()).current;
   const swipeThreshold = 100; // Minimum swipe distance to trigger navigation
+  const isSwipingRef = useRef(false); // Prevent multiple simultaneous swipes
 
   // Debug: Log currency on mount and when settings change
   React.useEffect(() => {
@@ -88,75 +89,116 @@ const HomeScreen: React.FC = () => {
   };
 
   // Swipe navigation handlers
-  const handleSwipeRight = async () => {
-    // Swipe right = previous month
-    const prevMonth = getPreviousMonthKey(currentMonth);
-    const firstMonthKey = settings.firstMonthKey;
-    
-    // Block navigation only if trying to go before the first month when user started using the app
-    if (firstMonthKey && prevMonth < firstMonthKey) {
-      // Block navigation - trying to go to month before first usage
+  const handleSwipeRight = React.useCallback(async () => {
+    // Prevent multiple simultaneous swipes
+    if (isSwipingRef.current) {
+      console.log('[HomeScreen] Swipe already in progress, ignoring');
       return;
     }
     
-    await setCurrentMonth(prevMonth);
-    pan.setValue({ x: 0, y: 0 });
-  };
-
-  const handleSwipeLeft = async () => {
-    // Swipe left = next month
-    const nextMonth = getNextMonthKey(currentMonth);
+    isSwipingRef.current = true;
     
-    // Always allow navigation to next month (even if empty)
-    await setCurrentMonth(nextMonth);
-    pan.setValue({ x: 0, y: 0 });
-  };
+    try {
+      // Swipe right = previous month
+      const prevMonth = getPreviousMonthKey(currentMonth);
+      
+      console.log('[HomeScreen] Swiping right to previous month:', {
+        from: currentMonth,
+        to: prevMonth,
+      });
+      
+      // Stop any ongoing animation and reset position immediately
+      pan.stopAnimation();
+      pan.setValue({ x: 0, y: 0 });
+      
+      // Allow navigation to any previous month (no limits - can swipe unlimited months)
+      await setCurrentMonth(prevMonth);
+    } catch (error) {
+      console.error('[HomeScreen] Error during swipe right:', error);
+    } finally {
+      // Reset swipe lock after a short delay to allow next swipe
+      setTimeout(() => {
+        isSwipingRef.current = false;
+      }, 300);
+    }
+  }, [currentMonth, setCurrentMonth]);
+
+  const handleSwipeLeft = React.useCallback(async () => {
+    // Prevent multiple simultaneous swipes
+    if (isSwipingRef.current) {
+      console.log('[HomeScreen] Swipe already in progress, ignoring');
+      return;
+    }
+    
+    isSwipingRef.current = true;
+    
+    try {
+      // Swipe left = next month
+      const nextMonth = getNextMonthKey(currentMonth);
+      
+      console.log('[HomeScreen] Swiping left to next month:', {
+        from: currentMonth,
+        to: nextMonth,
+      });
+      
+      // Stop any ongoing animation and reset position immediately
+      pan.stopAnimation();
+      pan.setValue({ x: 0, y: 0 });
+      
+      // Always allow navigation to next month (even if empty, no limits - can swipe unlimited months)
+      await setCurrentMonth(nextMonth);
+    } catch (error) {
+      console.error('[HomeScreen] Error during swipe left:', error);
+    } finally {
+      // Reset swipe lock after a short delay to allow next swipe
+      setTimeout(() => {
+        isSwipingRef.current = false;
+      }, 300);
+    }
+  }, [currentMonth, setCurrentMonth]);
 
   // PanResponder for swipe gestures
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Only respond to horizontal swipes
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        // Only allow horizontal movement
-        const prevMonth = getPreviousMonthKey(currentMonth);
-        const firstMonthKey = settings.firstMonthKey;
-        const canSwipeRight = !firstMonthKey || prevMonth >= firstMonthKey;
-        const canSwipeLeft = true; // Always allow next month
-        
-        let dx = gestureState.dx;
-        
-        // Block right swipe if trying to go before first month when user started using the app
-        if (dx > 0 && !canSwipeRight) {
-          // Apply resistance - reduce movement
-          dx = dx * 0.3;
-        }
-        
-        pan.setValue({ x: dx, y: 0 });
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const swipeThreshold = 100;
-        
-        if (Math.abs(gestureState.dx) > swipeThreshold) {
-          if (gestureState.dx > 0) {
-            // Swipe right = previous month
-            handleSwipeRight();
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          // Only respond to horizontal swipes
+          return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+        },
+        onPanResponderGrant: () => {
+          // Stop any ongoing animation when gesture starts
+          pan.stopAnimation();
+          pan.setValue({ x: 0, y: 0 });
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          // Allow horizontal movement in both directions
+          const dx = gestureState.dx;
+          pan.setValue({ x: dx, y: 0 });
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+          if (Math.abs(gestureState.dx) > swipeThreshold) {
+            // Stop any ongoing animation before handling swipe
+            pan.stopAnimation();
+            
+            if (gestureState.dx > 0) {
+              // Swipe right = previous month
+              handleSwipeRight();
+            } else {
+              // Swipe left = next month
+              handleSwipeLeft();
+            }
           } else {
-            // Swipe left = next month
-            handleSwipeLeft();
+            // Reset position if swipe wasn't far enough
+            pan.stopAnimation();
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              useNativeDriver: false,
+            }).start();
           }
-        } else {
-          // Reset position if swipe wasn't far enough
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
-        }
-      },
-    })
-  ).current;
+        },
+      }),
+    [handleSwipeLeft, handleSwipeRight, pan, swipeThreshold],
+  );
 
   const handleResetOnboarding = async () => {
     Alert.alert(
@@ -316,6 +358,7 @@ const HomeScreen: React.FC = () => {
       <AddTransactionModal
         visible={modalVisible}
         transactionToEdit={transactionToEdit}
+        currentMonth={currentMonth}
         onClose={handleCloseModal}
       />
     </Animated.View>
