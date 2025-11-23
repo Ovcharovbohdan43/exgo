@@ -5,6 +5,7 @@ import { Transaction, TransactionType } from '../types';
 import { getMonthKey, getPreviousMonthKey, getNextMonthKey } from '../utils/month';
 import { useSettings } from './SettingsProvider';
 import { calculateTotals } from '../modules/calculations';
+import { logError, addBreadcrumb } from '../services/sentry';
 
 export type TransactionsError = {
   message: string;
@@ -135,9 +136,17 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         allMonths: storedTransactions ? Object.keys(storedTransactions) : [],
       });
       
+      addBreadcrumb('Transactions loaded from storage', 'storage', 'info', {
+        monthKey,
+        transactionsCount: Object.keys(storedTransactions || {}).length,
+        allMonths: storedTransactions ? Object.keys(storedTransactions) : [],
+      });
+      
       setHydrated(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load transactions';
+      const errorObj = err instanceof Error ? err : new Error(errorMessage);
+      
       setError({
         message: errorMessage,
         code: 'HYDRATION_ERROR',
@@ -148,6 +157,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setCurrentMonthState(getMonthKey());
       setHydrated(true); // Still mark as hydrated to allow app to continue
       console.error('[TransactionsProvider] Hydration error:', err);
+      
+      // Log to Sentry
+      logError(errorObj, {
+        component: 'TransactionsProvider',
+        operation: 'hydrate',
+        errorCode: 'HYDRATION_ERROR',
+      });
     } finally {
       setLoading(false);
     }
@@ -209,8 +225,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         await saveTransactions(next);
         console.log('[TransactionsProvider] Transactions saved successfully');
+        addBreadcrumb('Transactions saved to storage', 'storage', 'info', {
+          totalMonths: Object.keys(next).length,
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to save transactions';
+        const errorObj = err instanceof Error ? err : new Error(errorMessage);
+        
         setError({
           message: errorMessage,
           code: 'SAVE_ERROR',
@@ -224,6 +245,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           return prev; // Keep current state on error
         });
         console.error('[TransactionsProvider] Save error:', err);
+        
+        // Log to Sentry
+        const monthCounts = Object.fromEntries(
+          Object.entries(next).map(([key, txs]) => [key, txs.length])
+        );
+        logError(errorObj, {
+          component: 'TransactionsProvider',
+          operation: 'persist',
+          errorCode: 'SAVE_ERROR',
+          monthCounts,
+          totalMonths: Object.keys(next).length,
+        });
+        
         throw err; // Re-throw to allow caller to handle
       }
     },
@@ -287,6 +321,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       } catch (err) {
         console.error('[TransactionsProvider] Failed to sync with storage:', err);
+        const errorObj = err instanceof Error ? err : new Error('Failed to sync with storage');
+        logError(errorObj, {
+          component: 'TransactionsProvider',
+          operation: 'setCurrentMonth-sync',
+          monthKey,
+        }, 'warning');
         // Continue with current state if sync fails - don't block month switching
         setTransactionsByMonth((prevTransactions) => {
           availableMonthsValue = Object.keys(prevTransactions);
@@ -301,8 +341,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       
       try {
         await saveCurrentMonth(monthKey);
+        addBreadcrumb('Current month saved', 'storage', 'info', { monthKey });
       } catch (err) {
         console.error('[TransactionsProvider] Failed to save current month:', err);
+        const errorObj = err instanceof Error ? err : new Error('Failed to save current month');
+        logError(errorObj, {
+          component: 'TransactionsProvider',
+          operation: 'saveCurrentMonth',
+          monthKey,
+        }, 'warning');
         // Don't throw, just log - month state is updated optimistically
       }
     },
@@ -471,7 +518,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         
         // Remove transaction from its month
         const monthTransactions = prev[foundMonthKey];
+        const deletedTransaction = monthTransactions.find((tx) => tx.id === id);
         const updatedMonthTransactions = monthTransactions.filter((tx) => tx.id !== id);
+        
+        // Track transaction deletion
+        if (deletedTransaction) {
+          const { trackTransactionDeleted } = require('../services/analytics');
+          trackTransactionDeleted({
+            type: deletedTransaction.type,
+            amount: deletedTransaction.amount,
+            category: deletedTransaction.category,
+            month: foundMonthKey,
+          });
+        }
         
         // Preserve all existing months (even if empty after deletion)
         next = {

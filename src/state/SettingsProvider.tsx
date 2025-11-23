@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { loadSettings, saveSettings } from '../services/storage';
 import { UserSettings } from '../types';
+import { logError, addBreadcrumb } from '../services/sentry';
 
 export type SettingsError = {
   message: string;
@@ -24,7 +25,10 @@ const defaultSettings: UserSettings = {
   monthlyIncome: 0,
   isOnboarded: false,
   themePreference: 'system',
-  customCategories: [],
+  customCategories: [], // Will contain both expense and income custom categories
+  enableBiometric: false,
+  enablePIN: false,
+  pin: undefined,
 };
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
@@ -43,16 +47,34 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const stored = await loadSettings();
       console.log('[SettingsProvider] Loaded settings from storage:', stored);
       if (stored) {
-        setSettings(stored);
-        console.log('[SettingsProvider] Settings set to:', stored);
+        // Merge with defaults to ensure all fields are present
+        const mergedSettings: UserSettings = {
+          ...defaultSettings,
+          ...stored,
+          // Ensure security fields have proper defaults
+          enableBiometric: stored.enableBiometric ?? false,
+          enablePIN: stored.enablePIN ?? false,
+          pin: stored.pin,
+        };
+        setSettings(mergedSettings);
+        console.log('[SettingsProvider] Settings set to:', mergedSettings);
+        addBreadcrumb('Settings loaded from storage', 'storage', 'info', {
+          hasSettings: true,
+          currency: mergedSettings.currency,
+          enableBiometric: mergedSettings.enableBiometric,
+          enablePIN: mergedSettings.enablePIN,
+        });
       } else {
         // Initialize with defaults if no stored data
         console.log('[SettingsProvider] No stored settings, using defaults');
         setSettings(defaultSettings);
+        addBreadcrumb('Settings initialized with defaults', 'storage', 'info');
       }
       setHydrated(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load settings';
+      const errorObj = err instanceof Error ? err : new Error(errorMessage);
+      
       setError({
         message: errorMessage,
         code: 'HYDRATION_ERROR',
@@ -62,6 +84,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSettings(defaultSettings);
       setHydrated(true); // Still mark as hydrated to allow app to continue
       console.error('[SettingsProvider] Hydration error:', err);
+      
+      // Log to Sentry
+      logError(errorObj, {
+        component: 'SettingsProvider',
+        operation: 'hydrate',
+        errorCode: 'HYDRATION_ERROR',
+      });
     } finally {
       setLoading(false);
     }
@@ -81,8 +110,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         await saveSettings(next);
         console.log('[SettingsProvider] Settings saved to storage successfully');
+        addBreadcrumb('Settings saved to storage', 'storage', 'info', {
+          currency: next.currency,
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to save settings';
+        const errorObj = err instanceof Error ? err : new Error(errorMessage);
+        
         setError({
           message: errorMessage,
           code: 'SAVE_ERROR',
@@ -92,6 +126,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
         // State is already updated optimistically, so UI stays consistent
         console.error('[SettingsProvider] Save error:', err);
+        
+        // Log to Sentry
+        logError(errorObj, {
+          component: 'SettingsProvider',
+          operation: 'persist',
+          errorCode: 'SAVE_ERROR',
+          settings: {
+            currency: next.currency,
+            monthlyIncome: next.monthlyIncome,
+            isOnboarded: next.isOnboarded,
+          },
+        });
+        
         throw err; // Re-throw to allow caller to handle
       }
     },

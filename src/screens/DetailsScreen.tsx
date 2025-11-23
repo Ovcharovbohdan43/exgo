@@ -10,6 +10,7 @@ import { DonutChartWithPercentages } from '../components/DonutChartWithPercentag
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { Card } from '../components/layout';
 import { SectionHeader } from '../components/layout';
+import { EmptyState } from '../components/states';
 import { formatMonthShort } from '../utils/month';
 
 const DetailsScreen: React.FC = () => {
@@ -78,19 +79,12 @@ const DetailsScreen: React.FC = () => {
           style={styles.sectionHeader}
         />
         {data.length === 0 ? (
-          <Card variant="outlined" padding="lg" style={styles.emptyCard}>
-            <Text
-              style={[
-                styles.empty,
-                {
-                  color: theme.colors.textMuted,
-                  fontSize: theme.typography.fontSize.md,
-                },
-              ]}
-            >
-              No expenses yet.
-            </Text>
-          </Card>
+          <EmptyState
+            icon="📊"
+            title="No expenses yet"
+            message="Start adding expense transactions to see your spending breakdown by category."
+            accessibilityLabel="No expenses. Start adding expense transactions to see your spending breakdown."
+          />
         ) : (
           <View style={styles.categoriesList}>
             {data.map(([category, stats]) => (
@@ -98,6 +92,11 @@ const DetailsScreen: React.FC = () => {
                 key={category}
                 onPress={() => handleCategoryPress(category)}
                 activeOpacity={0.7}
+                accessible={true}
+                accessibilityLabel={`${category} category, ${stats.percent.toFixed(1)} percent, ${formatCurrency(stats.amount, settings.currency)}`}
+                accessibilityRole="button"
+                accessibilityHint="Double tap to view transactions in this category"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Card variant="outlined" padding="md" style={styles.categoryCard}>
                   <View style={styles.row}>

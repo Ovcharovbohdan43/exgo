@@ -261,15 +261,30 @@ const DonutChart: React.FC<Props> = ({
     </View>
   );
 
+  const accessibilityLabel = `Budget chart. Spent: ${spent}, Saved: ${saved}, Remaining: ${remaining}`;
+  const accessibilityHint = onPress ? 'Double tap to view spending breakdown' : undefined;
+
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      <TouchableOpacity 
+        onPress={onPress} 
+        activeOpacity={0.7}
+        accessible={true}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        accessibilityHint={accessibilityHint}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
         {chartContent}
       </TouchableOpacity>
     );
   }
 
-  return chartContent;
+  return (
+    <View accessible={true} accessibilityLabel={accessibilityLabel} accessibilityRole="image">
+      {chartContent}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({

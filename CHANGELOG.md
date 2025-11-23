@@ -4,6 +4,229 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-XX] - Analytics: Event Tracking for User Actions
+
+#### Added
+- **Analytics Service**: Created `src/services/analytics.ts` for centralized event tracking
+  - Uses Sentry for event tracking (can be extended to support other analytics providers)
+  - Provides helper functions for common events
+  - Tracks events as Sentry breadcrumbs and custom context
+
+- **Event Tracking**:
+  - `onboarding_completed` - Tracked when user completes onboarding (currency, monthly income)
+  - `transaction_created` - Tracked when a new transaction is created (type, amount, category, month)
+  - `transaction_deleted` - Tracked when a transaction is deleted (type, amount, category, month)
+  - `transaction_updated` - Tracked when a transaction is updated (type, amount, category, month)
+  - `budget_exceeded` - Tracked when budget is exceeded (monthly income, expenses, saved, remaining, exceeded by)
+
+- **Integration Points**:
+  - `OnboardingScreen`: Tracks onboarding completion
+  - `AddTransactionModal`: Tracks transaction creation and updates
+  - `TransactionsProvider`: Tracks transaction deletion
+  - `HomeScreen`: Tracks budget exceeded events (when remaining transitions from non-negative to negative)
+
+#### Technical Details
+- Events are logged to Sentry as breadcrumbs and custom context
+- All events include relevant metadata (amounts, categories, months, etc.)
+- Analytics failures are silently handled to not break app functionality
+- Development mode includes console logging for debugging
+
+### [2025-01-XX] - Security & Privacy: Biometric Authentication, PIN Protection & Privacy Policy
+
+#### Added
+- **Biometric Authentication**: Added Face ID, Touch ID, and Fingerprint support
+  - Installed `expo-local-authentication` for biometric authentication
+  - Created `src/services/authentication.ts` service module with:
+    - `checkBiometricAvailability()` - Check if biometric is available
+    - `authenticateBiometric()` - Authenticate using biometric
+    - `verifyPIN()`, `validatePIN()`, `hashPIN()` - PIN management
+    - `isAuthenticationRequired()` - Check if auth is needed
+    - `authenticate()` - Unified authentication function
+  - Automatic biometric prompt on app launch (if enabled)
+  - Fallback to PIN if biometric fails
+
+- **PIN Code Authentication**: Added PIN code protection
+  - 4-6 digit PIN support
+  - PIN setup and change functionality
+  - PIN validation and verification
+  - Secure PIN storage (hashed)
+
+- **Lock Screen**: Created `src/screens/LockScreen.tsx`
+  - Beautiful lock screen UI with biometric and PIN options
+  - Automatic biometric prompt
+  - PIN input with validation
+  - Error handling and retry functionality
+  - Full accessibility support
+
+- **App Locking**: Integrated app locking functionality
+  - App locks automatically when going to background (if auth enabled)
+  - App locks on launch if authentication is required
+  - Uses AppState to detect background/foreground transitions
+  - Seamless unlock experience
+
+- **Security Settings**: Added Security tab in Settings
+  - Toggle for biometric authentication
+  - Toggle for PIN authentication
+  - PIN setup/change/remove functionality
+  - Biometric availability detection
+  - Clear UI with toggles and descriptions
+
+- **Privacy Documentation**:
+  - Created `docs/PRIVACY_POLICY.md` - Full privacy policy
+  - Created `docs/APP_PRIVACY_DESCRIPTION.md` - App Store Connect privacy description
+  - Created `docs/PRIVACY_INFO.md` - User-facing privacy information
+  - Detailed data collection and usage descriptions
+  - Compliance with GDPR, CCPA, App Store guidelines
+
+#### Changed
+- **UserSettings Type**: Added security settings fields
+  - `enableBiometric?: boolean` - Enable biometric authentication
+  - `enablePIN?: boolean` - Enable PIN authentication
+  - `pin?: string` - Stored PIN (hashed)
+
+- **SettingsProvider**: Updated default settings to include security fields
+
+- **SettingsScreen**: Added Security tab
+  - New tab for security settings
+  - Biometric toggle with availability check
+  - PIN toggle with setup flow
+  - PIN management (setup, change, remove)
+
+- **AppRoot**: Integrated lock screen
+  - Shows lock screen when app is locked
+  - Monitors AppState for background/foreground transitions
+  - Automatic locking when returning from background
+
+- **app.json**: Added expo-local-authentication plugin
+  - Face ID permission description
+  - iOS configuration for biometric authentication
+
+#### Security
+- All authentication handled locally on device
+- PIN stored as hash (should be improved with proper hashing in production)
+- Biometric authentication uses device's secure enclave
+- No authentication data transmitted or stored remotely
+- App locks automatically when backgrounded (if enabled)
+
+#### Privacy
+- Complete privacy policy documentation
+- App Store Connect privacy description
+- Clear data collection disclosure (only error tracking)
+- No financial data collection or transmission
+- Full user control over data
+
+### [2025-01-XX] - UX Improvements: Empty States, Error Handling & Accessibility
+
+#### Added
+- **Empty State Components**: Created reusable `EmptyState`, `LoadingState`, and `ErrorState` components
+  - `EmptyState`: Displays empty states with icon, title, message, and optional action button
+  - `LoadingState`: Shows loading spinner with optional message
+  - `ErrorState`: Displays error messages with retry functionality
+  - All components include full accessibility support
+
+- **Accessibility Improvements**:
+  - Added `accessibility.ts` utility with constants and helpers
+  - Minimum hit target size (44x44 points) for all interactive elements
+  - `accessibilityLabel`, `accessibilityRole`, `accessibilityHint` for all buttons and interactive elements
+  - `hitSlop` for all touchable elements to ensure minimum touch target size
+  - Accessibility labels for transactions, charts, and all UI elements
+  - VoiceOver support throughout the app
+
+- **Empty States**:
+  - HomeScreen: Empty state with CTA when no transactions exist
+  - DetailsScreen: Improved empty state for expense categories
+  - All empty states include helpful messages and action buttons
+
+- **Error Handling UI**:
+  - SettingsScreen: Error states for save and export operations with retry functionality
+  - Visual error feedback with retry buttons
+  - Error messages displayed inline with context
+
+#### Changed
+- **HomeScreen**:
+  - Added empty state component when no transactions
+  - Improved accessibility for FAB and chart
+  - Better empty state messaging with CTA
+
+- **DetailsScreen**:
+  - Replaced simple text empty state with `EmptyState` component
+  - Added accessibility labels for category items
+  - Improved touch targets for category cards
+
+- **SettingsScreen**:
+  - Added error handling UI for save and export operations
+  - All buttons now have proper accessibility labels and hit slop
+  - Theme selector buttons have accessibility states
+  - Input fields have accessibility hints
+
+- **TransactionsList**:
+  - Added accessibility labels for all transaction items
+  - Improved accessibility for delete and load more buttons
+  - Better empty state handling
+
+- **FloatingActionButton**:
+  - Added accessibility label and hint
+  - Added hit slop for better touch targets
+
+- **DonutChart**:
+  - Added accessibility labels describing chart data
+  - Accessibility role and hints for interactive charts
+
+#### Technical
+- Created `src/utils/accessibility.ts` with accessibility constants and helpers
+- Created `src/components/states/` directory for state components
+- All interactive elements meet WCAG 2.1 AA standards for touch targets
+- Consistent accessibility patterns across all components
+
+### [2025-01-XX] - Crash & Error Reporting with Sentry
+
+#### Added
+- **Sentry Integration**: Added comprehensive error tracking and crash reporting
+  - Installed `@sentry/react-native` for React Native error tracking
+  - Created `src/services/sentry.ts` service module with:
+    - `initSentry()` - Initialize Sentry SDK with configuration
+    - `logError()` - Log errors with context
+    - `logWarning()` - Log warnings
+    - `logInfo()` - Log info messages
+    - `addBreadcrumb()` - Add debugging breadcrumbs
+    - `setUser()`, `setContext()`, `setTag()` - Context management
+    - `withErrorTracking()` - Wrap functions with error tracking
+    - `SentryErrorBoundary` - React Error Boundary wrapper
+  - Integrated Sentry in `App.tsx` (early initialization)
+  - Added Error Boundary in `AppRoot.tsx` for React component errors
+  - Added error logging in `SettingsProvider`:
+    - Hydration errors
+    - Save errors with context
+    - Breadcrumbs for successful operations
+  - Added error logging in `TransactionsProvider`:
+    - Hydration errors
+    - Persist/save errors with transaction counts
+    - Sync errors when switching months
+    - Current month save errors
+    - Breadcrumbs for successful operations
+  - Navigation breadcrumbs for debugging
+  - Performance monitoring enabled (100% in dev, 10% in prod)
+  - Native crash handling enabled
+  - Screenshot attachments on errors
+
+#### Configuration
+- Added `sentryDsn` field to `app.json` extra configuration
+- Sentry DSN can be set via:
+  - `EXPO_PUBLIC_SENTRY_DSN` environment variable
+  - `app.json` extra.sentryDsn
+- Automatic environment detection (development/production)
+- Release tracking with app version and build number
+- Error filtering to exclude development errors in production
+
+#### Changed
+- Error handling now includes Sentry reporting in addition to console logging
+- All critical errors are automatically tracked with context
+
+#### Notes
+- Sentry initialization is skipped if DSN is not configured (development/local builds)
+- Sensitive data (emails, etc.) is automatically filtered from error reports
+- Error tracking respects privacy and doesn't log user financial data
+
 ### [2025-01-XX] - Transaction Editing Feature
 
 #### Added

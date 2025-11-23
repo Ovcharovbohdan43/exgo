@@ -13,6 +13,7 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 export interface CustomCategory {
   name: string;
   emoji: string;
+  type: 'expense' | 'income'; // Type of transaction this category belongs to
 }
 
 export interface UserSettings {
@@ -21,7 +22,11 @@ export interface UserSettings {
   isOnboarded: boolean;
   firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
   themePreference?: ThemePreference; // Theme preference: 'light', 'dark', or 'system'
-  customCategories?: CustomCategory[]; // User-defined expense categories
+  customCategories?: CustomCategory[]; // User-defined categories for expenses and income
+  // Security settings
+  enableBiometric?: boolean; // Enable biometric authentication (Face ID, Touch ID, Fingerprint)
+  enablePIN?: boolean; // Enable PIN code authentication
+  pin?: string; // Stored PIN (should be hashed in production)
 }
 
 export type NotificationType = 

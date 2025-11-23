@@ -8,6 +8,7 @@ import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
+import { getTransactionAccessibilityLabel, BUTTON_HIT_SLOP } from '../utils/accessibility';
 
 type TransactionsListProps = {
   transactions: Transaction[];
@@ -70,6 +71,11 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
           style={styles.deleteButton}
           onPress={handleDelete}
           activeOpacity={0.7}
+          accessible={true}
+          accessibilityLabel={`Delete ${transaction.type} transaction`}
+          accessibilityRole="button"
+          accessibilityHint="Double tap to delete this transaction"
+          hitSlop={BUTTON_HIT_SLOP}
         >
           <Text style={[styles.deleteButtonText, { color: theme.colors.background }]}>
             Delete
@@ -174,14 +180,32 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
       </View>
   );
 
+  const accessibilityLabel = getTransactionAccessibilityLabel(
+    transaction.type,
+    transaction.category || 'Uncategorized',
+    transaction.amount,
+    currency,
+    transaction.createdAt
+  );
+
   const cardContent = (
     <Card variant="outlined" padding="md" style={styles.transactionCard}>
       {onPress ? (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        <TouchableOpacity 
+          onPress={onPress} 
+          activeOpacity={0.7}
+          accessible={true}
+          accessibilityLabel={accessibilityLabel}
+          accessibilityRole="button"
+          accessibilityHint="Double tap to edit this transaction"
+          hitSlop={BUTTON_HIT_SLOP}
+        >
           {content}
         </TouchableOpacity>
       ) : (
-        content
+        <View accessible={true} accessibilityLabel={accessibilityLabel} accessibilityRole="text">
+          {content}
+        </View>
       )}
     </Card>
   );
@@ -354,7 +378,12 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   if (flatListData.length === 0) {
     return (
       <Card variant="outlined" padding="md" style={style}>
-        <View style={styles.emptyContainer}>
+        <View 
+          style={styles.emptyContainer}
+          accessible={true}
+          accessibilityLabel="No transactions"
+          accessibilityRole="text"
+        >
           <Text
             style={[
               styles.emptyText,
@@ -363,6 +392,8 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
                 fontSize: theme.typography.fontSize.sm,
               },
             ]}
+            accessible={false}
+            accessibilityElementsHidden={true}
           >
             No transactions yet
           </Text>
@@ -416,6 +447,11 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
               borderColor: theme.colors.border,
             },
           ]}
+          accessible={true}
+          accessibilityLabel="Load more transactions"
+          accessibilityRole="button"
+          accessibilityHint="Double tap to load more transactions"
+          hitSlop={BUTTON_HIT_SLOP}
         >
           <Text
             style={[

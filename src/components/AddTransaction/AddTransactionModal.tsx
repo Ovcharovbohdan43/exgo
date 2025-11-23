@@ -7,7 +7,8 @@ import { TransactionType, Transaction } from '../../types';
 import { AmountInputStep } from './AmountInputStep';
 import { CategorySelectionStep } from './CategorySelectionStep';
 import { ConfirmStep } from './ConfirmStep';
-import { parseMonthKey } from '../../utils/month';
+import { parseMonthKey, getMonthKey } from '../../utils/month';
+import { trackTransactionCreated, trackTransactionUpdated } from '../../services/analytics';
 
 type AddTransactionModalProps = {
   visible: boolean;
@@ -73,15 +74,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const handleTypeSelect = useCallback((selectedType: TransactionType) => {
     setType(selectedType);
     setError(null);
+    setCategory(null); // Reset category when type changes
     
-    // Auto-select category for income and saved
-    if (selectedType === 'income') {
-      setCategory('Income');
-      setStep('amount');
-    } else if (selectedType === 'saved') {
+    // Auto-select category only for saved
+    if (selectedType === 'saved') {
       setCategory('Savings');
       setStep('amount');
     } else {
+      // For income and expense, let user select category
       setStep('amount');
     }
   }, []);
@@ -96,8 +96,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
     setError(null);
     
-    // If category is already set (income/saved), go to confirm
-    if (type === 'income' || (type === 'saved' && category)) {
+    // If category is already set (saved), go to confirm
+    // For income and expense, always go to category selection
+    if (type === 'saved' && category) {
       setStep('confirm');
     } else {
       setStep('category');
@@ -160,6 +161,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           amount: numAmount,
           category,
           createdAt,
+        });
+
+        // Track transaction creation
+        trackTransactionCreated({
+          type,
+          amount: numAmount,
+          category,
+          month: getMonthKey(new Date(createdAt)),
         });
 
         const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';

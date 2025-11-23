@@ -10,14 +10,33 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow $(PRODUCT_NAME) to use Face ID to secure your budget data."
+      }
     },
-    "android": {},
-    "plugins": [],
+    "android": {
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "package": "com.bohdan_ovcharov.exgo"
+    },
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to secure your budget data."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "00000000-0000-0000-0000-000000000000"
-      }
+      },
+      "sentryDsn": "https://277ae75f75f060c752cfc35e1084f4db@o4510415264153610.ingest.de.sentry.io/4510415272542288"
     }
   }
 }

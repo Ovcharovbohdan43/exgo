@@ -32,8 +32,23 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
 
   const customCategories = settings.customCategories || [];
 
-  // For income, category is fixed
+  // Filter custom categories by type
+  const customCategoriesForType = customCategories.filter((cat) => cat.type === type);
+
+  // Handle adding new custom category
+  const handleAddCategory = async (category: CustomCategory) => {
+    const updatedCategories = [...customCategories, category];
+    await updateSettings({ customCategories: updatedCategories });
+    // Automatically select the newly created category
+    onSelect(category.name);
+  };
+
+  // For income, show default "Income" category plus custom income categories
   if (type === 'income') {
+    const defaultIncomeCategories = ['Income'];
+    const customIncomeCategoryNames = customCategoriesForType.map((cat) => cat.name);
+    const incomeCategories = [...defaultIncomeCategories, ...customIncomeCategoryNames];
+
     return (
       <View style={style}>
         <Text
@@ -47,31 +62,99 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
             },
           ]}
         >
-          Category
+          Select Category
         </Text>
-        <Card
-          variant="outlined"
-          padding="lg"
-          style={{
-            ...styles.fixedCategory,
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.positive,
-          }}
+        
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.categoriesContainer}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.emoji}>{getCategoryEmoji('Income')}</Text>
-          <Text
-            style={[
-              styles.fixedCategoryText,
-              {
-                color: theme.colors.positive,
-                fontSize: theme.typography.fontSize.lg,
-                fontWeight: theme.typography.fontWeight.semibold,
-              },
-            ]}
+          {incomeCategories.map((category) => {
+            const isSelected = selectedCategory === category;
+            return (
+              <TouchableOpacity
+                key={category}
+                onPress={() => onSelect(category)}
+                activeOpacity={0.7}
+              >
+                <Card
+                  variant={isSelected ? 'elevated' : 'outlined'}
+                  padding="md"
+                  style={{
+                    ...styles.categoryCard,
+                    backgroundColor: isSelected 
+                      ? theme.colors.positive + '15' 
+                      : theme.colors.surface,
+                    borderColor: isSelected 
+                      ? theme.colors.positive 
+                      : theme.colors.border,
+                    borderWidth: isSelected ? 2 : 1,
+                  }}
+                >
+                  <Text style={styles.categoryEmoji}>{getCategoryEmoji(category, customCategories)}</Text>
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      {
+                        color: isSelected 
+                          ? theme.colors.positive 
+                          : theme.colors.textPrimary,
+                        fontSize: theme.typography.fontSize.md,
+                        fontWeight: isSelected 
+                          ? theme.typography.fontWeight.semibold 
+                          : theme.typography.fontWeight.medium,
+                      },
+                    ]}
+                  >
+                    {category}
+                  </Text>
+                </Card>
+              </TouchableOpacity>
+            );
+          })}
+          
+          {/* Add Custom Category Button for income */}
+          <TouchableOpacity
+            onPress={() => setShowAddCategoryModal(true)}
+            activeOpacity={0.7}
           >
-            Income
-          </Text>
-        </Card>
+            <Card
+              variant="outlined"
+              padding="md"
+              style={{
+                ...styles.categoryCard,
+                ...styles.addCategoryCard,
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                borderWidth: 1,
+                borderStyle: 'dashed',
+              }}
+            >
+              <Text style={styles.addCategoryIcon}>+</Text>
+              <Text
+                style={[
+                  styles.categoryText,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  },
+                ]}
+              >
+                Add Custom Category
+              </Text>
+            </Card>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <AddCategoryModal
+          visible={showAddCategoryModal}
+          existingCategories={incomeCategories}
+          categoryType="income"
+          onClose={() => setShowAddCategoryModal(false)}
+          onSave={handleAddCategory}
+        />
       </View>
     );
   }
@@ -81,16 +164,9 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
     ? ['Savings']
     : EXPENSE_CATEGORIES;
 
-  // Combine default and custom categories
-  const customCategoryNames = customCategories.map((cat) => cat.name);
+  // Combine default and custom categories for expense type
+  const customCategoryNames = customCategoriesForType.map((cat) => cat.name);
   const categories = [...defaultCategories, ...customCategoryNames];
-
-  const handleAddCategory = async (category: CustomCategory) => {
-    const updatedCategories = [...customCategories, category];
-    await updateSettings({ customCategories: updatedCategories });
-    // Automatically select the newly created category
-    onSelect(category.name);
-  };
 
   const getAllCategoryNames = () => {
     return [...defaultCategories, ...customCategoryNames];
@@ -200,6 +276,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
       <AddCategoryModal
         visible={showAddCategoryModal}
         existingCategories={getAllCategoryNames()}
+        categoryType="expense"
         onClose={() => setShowAddCategoryModal(false)}
         onSave={handleAddCategory}
       />

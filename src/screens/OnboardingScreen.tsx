@@ -19,6 +19,7 @@ import { useSettings } from '../state/SettingsProvider';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import { getMonthKey } from '../utils/month';
+import { trackOnboardingCompleted } from '../services/analytics';
 
 const CURRENCIES = ['USD', 'GBP', 'EUR'] as const;
 type Currency = typeof CURRENCIES[number];
@@ -108,6 +109,13 @@ const OnboardingScreen: React.FC = () => {
         firstMonthKey: currentMonthKey, // Set current month as first month of usage
       });
       console.log('[OnboardingScreen] Settings saved successfully, onboarding completed');
+      
+      // Track onboarding completion
+      trackOnboardingCompleted({
+        currency: currencyToSave,
+        monthlyIncome: parsedIncome,
+      });
+      
       // State is updated, useEffect will trigger navigation
       // Small delay to ensure state propagation
       setIsSaving(false);

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useThemeStyles } from '../../theme/ThemeProvider';
-import { CustomCategory } from '../../types';
+import { CustomCategory, TransactionType } from '../../types';
 
 type AddCategoryModalProps = {
   visible: boolean;
   existingCategories: string[];
+  categoryType: 'expense' | 'income'; // Type of category being created
   onClose: () => void;
   onSave: (category: CustomCategory) => void;
 };
 
-// Popular emojis for categories
-const POPULAR_EMOJIS = [
+// Popular emojis for expense categories
+const EXPENSE_EMOJIS = [
   '🍕', '🍔', '🍟', '🌮', '🍜', '🍱', '🍣', '🍰', '☕', '🍺',
   '🚗', '✈️', '🚇', '🚲', '🏍️', '🚢', '🎮', '🎬', '🎵', '🎨',
   '🏋️', '⚽', '🏀', '🎾', '🏊', '🧘', '💆', '💇', '💅', '💄',
@@ -21,15 +22,30 @@ const POPULAR_EMOJIS = [
   '🎁', '🎂', '🎈', '🎉', '🎊', '🎀', '🎃', '🎄', '🎅', '🎆',
 ];
 
+// Popular emojis for income categories
+const INCOME_EMOJIS = [
+  '💰', '💵', '💴', '💶', '💷', '💸', '💳', '💎', '🏦', '📊',
+  '💼', '👔', '🎓', '🏆', '⭐', '🌟', '✨', '🎁', '🎉', '🎊',
+  '💻', '📱', '⌚', '📷', '🎨', '🎵', '🎬', '📚', '✍️', '🎯',
+  '🚀', '💡', '🔔', '📈', '📉', '💹', '🏅', '🥇', '🥈', '🥉',
+  '🎪', '🎭', '🎤', '🎧', '🎸', '🎹', '🎺', '🎻', '🥁', '🎲',
+  '🏠', '🏡', '🏢', '🏪', '🏥', '🏫', '🏰', '⛪', '🕌', '🕍',
+  '🌳', '🌲', '🌵', '🌻', '🌺', '🌷', '🌹', '🌸', '🌼', '🌿',
+];
+
 export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   visible,
   existingCategories,
+  categoryType,
   onClose,
   onSave,
 }) => {
   const theme = useThemeStyles();
   const [categoryName, setCategoryName] = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState('📦');
+  const [selectedEmoji, setSelectedEmoji] = useState(categoryType === 'income' ? '💰' : '📦');
+  
+  // Select appropriate emoji list based on category type
+  const emojiList = categoryType === 'income' ? INCOME_EMOJIS : EXPENSE_EMOJIS;
 
   const handleSave = () => {
     const trimmedName = categoryName.trim();
@@ -47,19 +63,25 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
     onSave({
       name: trimmedName,
       emoji: selectedEmoji,
+      type: categoryType,
     });
 
     // Reset form
     setCategoryName('');
-    setSelectedEmoji('📦');
+    setSelectedEmoji(categoryType === 'income' ? '💰' : '📦');
     onClose();
   };
 
   const handleClose = () => {
     setCategoryName('');
-    setSelectedEmoji('📦');
+    setSelectedEmoji(categoryType === 'income' ? '💰' : '📦');
     onClose();
   };
+  
+  // Reset emoji when categoryType changes
+  React.useEffect(() => {
+    setSelectedEmoji(categoryType === 'income' ? '💰' : '📦');
+  }, [categoryType]);
 
   return (
     <Modal
@@ -187,7 +209,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                   contentContainerStyle={styles.emojiGridContent}
                   showsVerticalScrollIndicator={false}
                 >
-                  {POPULAR_EMOJIS.map((emoji, index) => (
+                  {emojiList.map((emoji, index) => (
                     <TouchableOpacity
                       key={index}
                       onPress={() => setSelectedEmoji(emoji)}

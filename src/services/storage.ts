@@ -56,7 +56,10 @@ const validateSettings = (data: unknown): data is UserSettings => {
     typeof settings.currency === 'string' &&
     typeof settings.monthlyIncome === 'number' &&
     typeof settings.isOnboarded === 'boolean' &&
-    (settings.firstMonthKey === undefined || typeof settings.firstMonthKey === 'string')
+    (settings.firstMonthKey === undefined || typeof settings.firstMonthKey === 'string') &&
+    (settings.enableBiometric === undefined || typeof settings.enableBiometric === 'boolean') &&
+    (settings.enablePIN === undefined || typeof settings.enablePIN === 'boolean') &&
+    (settings.pin === undefined || typeof settings.pin === 'string')
   );
 };
 

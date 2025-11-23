@@ -3,13 +3,20 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, AppState, AppStateStatus } from 'react-native';
 import RootNavigator from './navigation/RootNavigator';
 import { AppProvider } from './state/AppProvider';
 import { ThemeProvider, useThemeStyles } from './theme/ThemeProvider';
 import { SettingsProvider, useSettings } from './state/SettingsProvider';
 import { useTransactions } from './state/TransactionsProvider';
 import { ThemePreference } from './types';
+import { logError, SentryErrorBoundary, addBreadcrumb } from './services/sentry';
+import { LockScreen } from './screens/LockScreen';
+import { isAuthenticationRequired } from './services/authentication';
+
+// Temporary kill-switch to bypass Face ID/biometric lock during development.
+// Set back to false before production/TestFlight so biometric lock works.
+const TEMP_DISABLE_BIOMETRIC_LOCK = true;
 
 const Loader = () => {
   const theme = useThemeStyles();
@@ -91,11 +98,145 @@ const AppContent = () => {
   const ready = settingsReady && transactionsReady;
   const loading = settingsLoading || transactionsLoading;
   const error = settingsError || transactionsError;
+  
+  // Lock screen state
+  const [isLocked, setIsLocked] = React.useState(false);
+  const appState = React.useRef(AppState.currentState);
+  const [appStateVisible, setAppStateVisible] = React.useState(appState.current);
+  const hasLockedInitially = React.useRef(false); // Track if we've already locked on initial mount
+  const wasInBackground = React.useRef(false); // Track if app was in background
+
+  // Check if authentication is required
+  const authRequired = React.useMemo(() => {
+    if (!ready) return false;
+    const enableBiometric = !TEMP_DISABLE_BIOMETRIC_LOCK && settings.enableBiometric === true;
+    const enablePIN = settings.enablePIN === true;
+    const hasPIN = !!settings.pin;
+    
+    console.log('[AppRoot] Checking auth requirement:', {
+      enableBiometric,
+      enablePIN,
+      hasPIN,
+      settings: {
+        enableBiometric: settings.enableBiometric,
+        enablePIN: settings.enablePIN,
+        pin: settings.pin ? '***' : undefined,
+      },
+      tempBiometricDisabled: TEMP_DISABLE_BIOMETRIC_LOCK,
+    });
+    
+    return isAuthenticationRequired(enableBiometric, enablePIN, hasPIN);
+  }, [ready, settings.enableBiometric, settings.enablePIN, settings.pin]);
+
+  // Lock app when it goes to background (if auth is enabled)
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      const previousState = appState.current;
+      
+      // Track when app goes to background
+      if (previousState === 'active' && nextAppState.match(/inactive|background/)) {
+        wasInBackground.current = true;
+        console.log('[AppRoot] App went to background');
+      }
+      
+      // Lock when app returns from background (if auth is enabled)
+      if (
+        previousState.match(/inactive|background/) &&
+        nextAppState === 'active' &&
+        authRequired &&
+        wasInBackground.current
+      ) {
+        console.log('[AppRoot] App returned from background, locking');
+        setIsLocked(true);
+        wasInBackground.current = false;
+        addBreadcrumb('App returned to foreground, locking', 'security', 'info');
+      }
+
+      appState.current = nextAppState;
+      setAppStateVisible(appState.current);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [authRequired]);
+
+  // Lock on initial mount if auth is required (only once)
+  React.useEffect(() => {
+    if (ready && authRequired && !hasLockedInitially.current) {
+      console.log('[AppRoot] Initial lock triggered', { ready, authRequired });
+      setIsLocked(true);
+      hasLockedInitially.current = true;
+      addBreadcrumb('App started, authentication required', 'security', 'info');
+    }
+  }, [ready, authRequired]);
+  
+  // Reset initial lock flag if auth is disabled (to allow re-locking if re-enabled)
+  React.useEffect(() => {
+    if (!authRequired && hasLockedInitially.current) {
+      console.log('[AppRoot] Auth disabled, resetting lock state');
+      hasLockedInitially.current = false;
+      setIsLocked(false);
+    }
+  }, [authRequired]);
+
+  const handleUnlock = React.useCallback(() => {
+    console.log('[AppRoot] Unlocking app...', {
+      enableBiometric: settings.enableBiometric,
+      enablePIN: settings.enablePIN,
+      hasPIN: !!settings.pin,
+    });
+    setIsLocked(false);
+    // Reset background flag to prevent immediate re-lock
+    wasInBackground.current = false;
+    addBreadcrumb('App unlocked successfully', 'security', 'info');
+  }, [settings.enableBiometric, settings.enablePIN, settings.pin]);
 
   const handleRetry = async () => {
+    addBreadcrumb('User retried data loading', 'user-action', 'info');
     if (settingsError) await retrySettings();
     if (transactionsError) await retryTransactions();
   };
+
+  // Log errors to Sentry
+  React.useEffect(() => {
+    if (error && ready) {
+      // Show error but allow app to continue with defaults
+      console.warn('[AppContent] Error state:', error);
+      logError(new Error(error.message), {
+        errorCode: error.code,
+        component: 'AppContent',
+        settingsReady,
+        transactionsReady,
+      }, 'warning');
+    }
+  }, [error, ready, settingsReady, transactionsReady]);
+
+  // Auto-unlock if no valid auth method is enabled (must be before any conditional returns)
+  React.useEffect(() => {
+    if (isLocked && ready) {
+      const enableBiometric = settings.enableBiometric === true;
+      const enablePIN = settings.enablePIN === true;
+      const hasPIN = !!settings.pin;
+      
+      console.log('[AppRoot] Checking if auto-unlock needed:', {
+        isLocked,
+        ready,
+        enableBiometric,
+        enablePIN,
+        hasPIN,
+        authRequired,
+      });
+      
+      // If no authentication method is actually enabled, unlock automatically
+      if (!enableBiometric && (!enablePIN || !hasPIN)) {
+        console.log('[AppRoot] No valid auth method, unlocking automatically');
+        setIsLocked(false);
+      } else {
+        console.log('[AppRoot] Auth method is enabled, keeping locked');
+      }
+    }
+  }, [isLocked, ready, settings.enableBiometric, settings.enablePIN, settings.pin, authRequired]);
 
   if (loading && !ready) {
     return <Loader />;
@@ -114,8 +255,47 @@ const AppContent = () => {
     return <ErrorScreen message={error.message} onRetry={handleRetry} />;
   }
 
+  // Show lock screen if app is locked
+  if (isLocked && ready) {
+    const enableBiometric = !TEMP_DISABLE_BIOMETRIC_LOCK && settings.enableBiometric === true;
+    const enablePIN = settings.enablePIN === true;
+    const hasPIN = !!settings.pin;
+    
+    console.log('[AppRoot] Showing lock screen', {
+      isLocked,
+      ready,
+      enableBiometric,
+      enablePIN,
+      hasPIN,
+      authRequired,
+      tempBiometricDisabled: TEMP_DISABLE_BIOMETRIC_LOCK,
+    });
+    
+    return (
+      <LockScreen
+        enableBiometric={enableBiometric}
+        enablePIN={enablePIN && hasPIN}
+        storedPIN={settings.pin}
+        onUnlock={handleUnlock}
+        reason="Unlock your budget app"
+      />
+    );
+  }
+  
+  console.log('[AppRoot] App is unlocked, showing navigation', {
+    isLocked,
+    ready,
+    authRequired,
+  });
+
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      onReady={() => {
+        addBreadcrumb('Navigation container ready', 'navigation', 'info', {
+          isOnboarded: settings.isOnboarded,
+        });
+      }}
+    >
       <RootNavigator isOnboarded={settings.isOnboarded} />
     </NavigationContainer>
   );
@@ -145,13 +325,29 @@ const ThemeWrapper = () => {
 
 const AppRoot = () => {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <SettingsProvider>
-          <ThemeWrapper />
-        </SettingsProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <SentryErrorBoundary
+      fallback={({ error, resetError }) => (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorMessage}>{error.message}</Text>
+          <TouchableOpacity
+            onPress={resetError}
+            style={[styles.retryButton, { backgroundColor: '#007AFF', padding: 12, borderRadius: 8 }]}
+          >
+            <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      showDialog={false}
+    >
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <SettingsProvider>
+            <ThemeWrapper />
+          </SettingsProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </SentryErrorBoundary>
   );
 };
 

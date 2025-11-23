@@ -9,6 +9,7 @@ import FloatingActionButton from '../components/FloatingActionButton';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionsList } from '../components/TransactionsList';
 import { AddTransactionModal } from '../components/AddTransaction';
+import { EmptyState } from '../components/states';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useTransactions } from '../state/TransactionsProvider';
@@ -18,6 +19,7 @@ import { formatCurrency } from '../utils/format';
 import { clearAllData } from '../utils/devReset';
 import { Transaction } from '../types';
 import { formatMonthShort, getMonthKey, getPreviousMonthKey, getNextMonthKey, isCurrentMonth as isCurrentMonthKey } from '../utils/month';
+import { trackBudgetExceeded } from '../services/analytics';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -96,6 +98,28 @@ const HomeScreen: React.FC = () => {
     console.log('[HomeScreen] Current currency:', settings.currency);
     console.log('[HomeScreen] Current settings:', settings);
   }, [settings.currency, settings]);
+
+  // Track budget exceeded event
+  const prevRemainingRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const currentRemaining = totals.remaining;
+    const prevRemaining = prevRemainingRef.current;
+    
+    // Track when budget is exceeded (remaining becomes negative)
+    // Only track when transitioning from non-negative to negative
+    if (prevRemaining !== null && prevRemaining >= 0 && currentRemaining < 0) {
+      trackBudgetExceeded({
+        monthly_income: settings.monthlyIncome,
+        total_expenses: totals.expenses,
+        total_saved: totals.saved,
+        remaining: currentRemaining,
+        month: currentMonth,
+        exceeded_by: Math.abs(currentRemaining),
+      });
+    }
+    
+    prevRemainingRef.current = currentRemaining;
+  }, [totals.remaining, totals.expenses, totals.saved, settings.monthlyIncome, currentMonth]);
 
   const handleChartPress = () => {
     navigation.navigate('Details');
@@ -354,14 +378,25 @@ const HomeScreen: React.FC = () => {
             variant="overline"
             style={styles.sectionHeader}
           />
-          <TransactionsList
-            transactions={displayedTransactions}
-            currency={settings.currency}
-            hasMore={hasMoreTransactions}
-            onLoadMore={handleLoadMore}
-            onTransactionPress={handleTransactionPress}
-            onTransactionDelete={handleTransactionDelete}
-          />
+          {transactions.length === 0 ? (
+            <EmptyState
+              icon="📝"
+              title="No transactions yet"
+              message="Start tracking your expenses, income, and savings by adding your first transaction."
+              actionLabel="Add Transaction"
+              onAction={handleFABPress}
+              accessibilityLabel="No transactions. Tap to add your first transaction."
+            />
+          ) : (
+            <TransactionsList
+              transactions={displayedTransactions}
+              currency={settings.currency}
+              hasMore={hasMoreTransactions}
+              onLoadMore={handleLoadMore}
+              onTransactionPress={handleTransactionPress}
+              onTransactionDelete={handleTransactionDelete}
+            />
+          )}
         </View>
 
         {/* Development Reset Button - Remove in production */}
@@ -388,8 +423,13 @@ const HomeScreen: React.FC = () => {
             right: Math.max(24, insets.right + 8),
           },
         ]}
+        accessible={false}
+        accessibilityElementsHidden={true}
       >
-        <FloatingActionButton onPress={handleFABPress} />
+        <FloatingActionButton 
+          onPress={handleFABPress}
+          accessibilityLabel="Add transaction"
+        />
       </View>
 
       {/* Add/Edit Transaction Modal */}
