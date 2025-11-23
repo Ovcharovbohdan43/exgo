@@ -3,6 +3,7 @@ import { Transaction, UserSettings } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
+const CURRENT_MONTH_KEY = 'currentMonth'; // Store current selected month
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -53,7 +54,8 @@ const validateSettings = (data: unknown): data is UserSettings => {
   return (
     typeof settings.currency === 'string' &&
     typeof settings.monthlyIncome === 'number' &&
-    typeof settings.isOnboarded === 'boolean'
+    typeof settings.isOnboarded === 'boolean' &&
+    (settings.firstMonthKey === undefined || typeof settings.firstMonthKey === 'string')
   );
 };
 
@@ -114,8 +116,10 @@ export const saveSettings = async (settings: UserSettings): Promise<void> => {
 
 /**
  * Load transactions from AsyncStorage with retry and validation
+ * @deprecated Use loadTransactions() which returns Record<string, Transaction[]>
+ * This function is kept for backward compatibility during migration
  */
-export const loadTransactions = async (): Promise<Transaction[] | null> => {
+export const loadTransactionsLegacy = async (): Promise<Transaction[] | null> => {
   try {
     const raw = await withRetry(() => AsyncStorage.getItem(TRANSACTIONS_KEY));
     const parsed = safeParse<Transaction[]>(raw);
@@ -137,17 +141,96 @@ export const loadTransactions = async (): Promise<Transaction[] | null> => {
 
 /**
  * Save transactions to AsyncStorage with retry
+ * Now supports monthly structure: Record<string, Transaction[]>
  */
-export const saveTransactions = async (transactions: Transaction[]): Promise<void> => {
+export const saveTransactions = async (
+  transactionsByMonth: Record<string, Transaction[]>,
+): Promise<void> => {
   try {
-    if (!validateTransactions(transactions)) {
-      throw new Error('Invalid transactions structure');
+    // Validate all transactions in all months
+    for (const [monthKey, transactions] of Object.entries(transactionsByMonth)) {
+      if (!validateTransactions(transactions)) {
+        throw new Error(`Invalid transactions structure for month ${monthKey}`);
+      }
     }
     await withRetry(() =>
-      AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions)),
+      AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactionsByMonth)),
     );
   } catch (error) {
     console.error('[Storage] Failed to save transactions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Load transactions from AsyncStorage with retry
+ * Returns monthly structure: Record<string, Transaction[]>
+ */
+export const loadTransactions = async (): Promise<Record<string, Transaction[]> | null> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(TRANSACTIONS_KEY));
+    
+    if (!raw) return null;
+    
+    const parsed = safeParse<Record<string, Transaction[]>>(raw);
+    
+    if (!parsed || typeof parsed !== 'object') {
+      // Try to parse as old format (array) and migrate
+      const oldFormat = safeParse<Transaction[]>(raw);
+      if (oldFormat && validateTransactions(oldFormat)) {
+        // Migrate old format to new format
+        const { getMonthKey } = require('../utils/month');
+        const migrated: Record<string, Transaction[]> = {};
+        for (const tx of oldFormat) {
+          const monthKey = getMonthKey(new Date(tx.createdAt));
+          if (!migrated[monthKey]) {
+            migrated[monthKey] = [];
+          }
+          migrated[monthKey].push(tx);
+        }
+        // Save migrated data
+        await saveTransactions(migrated);
+        return migrated;
+      }
+      return null;
+    }
+    
+    // Validate all months
+    for (const [monthKey, transactions] of Object.entries(parsed)) {
+      if (!validateTransactions(transactions)) {
+        console.warn(`[Storage] Invalid transactions for month ${monthKey}, skipping`);
+        delete parsed[monthKey];
+      }
+    }
+    
+    return parsed;
+  } catch (error) {
+    console.error('[Storage] Failed to load transactions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Load current selected month from storage
+ */
+export const loadCurrentMonth = async (): Promise<string | null> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(CURRENT_MONTH_KEY));
+    return raw || null;
+  } catch (error) {
+    console.error('[Storage] Failed to load current month:', error);
+    return null;
+  }
+};
+
+/**
+ * Save current selected month to storage
+ */
+export const saveCurrentMonth = async (monthKey: string): Promise<void> => {
+  try {
+    await withRetry(() => AsyncStorage.setItem(CURRENT_MONTH_KEY, monthKey));
+  } catch (error) {
+    console.error('[Storage] Failed to save current month:', error);
     throw error;
   }
 };

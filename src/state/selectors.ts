@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Transaction, UserSettings } from '../types';
 import { calculateTotals, categoryBreakdown } from '../modules/calculations';
+import { filterByMonth } from '../modules/calculations';
 
 /**
  * Memoized selector for monthly totals
@@ -24,18 +25,24 @@ export const useCategoryBreakdown = (transactions: Transaction[]) => {
 };
 
 /**
- * Memoized selector for current month transactions
+ * Memoized selector for transactions filtered by month
+ * @param transactions - All transactions
+ * @param monthKey - Month key in format YYYY-MM
+ */
+export const useTransactionsByMonth = (transactions: Transaction[], monthKey: string) => {
+  return useMemo(() => {
+    return filterByMonth(transactions, monthKey);
+  }, [transactions, monthKey]);
+};
+
+/**
+ * @deprecated Use useTransactionsByMonth instead
+ * Kept for backward compatibility
  */
 export const useCurrentMonthTransactions = (transactions: Transaction[]) => {
   return useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return transactions.filter((tx) => {
-      const txDate = new Date(tx.createdAt);
-      return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
-    });
+    // Return transactions as-is since they're already filtered by month in provider
+    return transactions;
   }, [transactions]);
 };
 

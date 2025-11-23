@@ -1,5 +1,4 @@
 import { Transaction } from '../types';
-import { isCurrentMonth } from '../utils/date';
 
 interface Totals {
   income: number;
@@ -9,11 +8,22 @@ interface Totals {
   chartRemaining: number;
 }
 
-export const filterCurrentMonth = (transactions: Transaction[]): Transaction[] =>
-  transactions.filter((tx) => isCurrentMonth(tx.createdAt));
+/**
+ * Filter transactions for a specific month
+ * @param transactions - All transactions
+ * @param monthKey - Month key in format YYYY-MM
+ */
+export const filterByMonth = (transactions: Transaction[], monthKey: string): Transaction[] => {
+  const [year, month] = monthKey.split('-').map(Number);
+  return transactions.filter((tx) => {
+    const txDate = new Date(tx.createdAt);
+    return txDate.getFullYear() === year && txDate.getMonth() === month - 1;
+  });
+};
 
 export const calculateTotals = (transactions: Transaction[], monthlyIncome: number): Totals => {
-  const monthly = filterCurrentMonth(transactions);
+  // transactions are already filtered for the selected month
+  const monthly = transactions;
 
   const expenses = monthly
     .filter((tx) => tx.type === 'expense')
@@ -41,7 +51,8 @@ export const calculateTotals = (transactions: Transaction[], monthlyIncome: numb
 };
 
 export const categoryBreakdown = (transactions: Transaction[]) => {
-  const expenses = filterCurrentMonth(transactions).filter((tx) => tx.type === 'expense');
+  // transactions are already filtered for the selected month
+  const expenses = transactions.filter((tx) => tx.type === 'expense');
   const total = expenses.reduce((sum, tx) => sum + tx.amount, 0) || 1;
 
   return expenses.reduce<Record<string, { amount: number; percent: number }>>((acc, tx) => {

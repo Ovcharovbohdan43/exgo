@@ -12,4 +12,5 @@ export interface UserSettings {
   currency: string;
   monthlyIncome: number;
   isOnboarded: boolean;
+  firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
 }

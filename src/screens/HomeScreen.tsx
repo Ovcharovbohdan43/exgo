@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Animated, PanResponder, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,11 +12,12 @@ import { AddTransactionModal } from '../components/AddTransaction';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useTransactions } from '../state/TransactionsProvider';
-import { useMonthlyTotals, useCurrentMonthTransactions, useRecentTransactions } from '../state/selectors';
+import { useMonthlyTotals, useRecentTransactions } from '../state/selectors';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { formatCurrency } from '../utils/format';
 import { clearAllData } from '../utils/devReset';
 import { Transaction } from '../types';
+import { formatMonthShort, getMonthKey, getPreviousMonthKey, getNextMonthKey, isCurrentMonth as isCurrentMonthKey } from '../utils/month';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -25,13 +26,21 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const { transactions, deleteTransaction } = useTransactions();
-  const currentMonthTransactions = useCurrentMonthTransactions(transactions);
+  const { transactions, currentMonth, setCurrentMonth, deleteTransaction, hasMonthData } = useTransactions();
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
-  const recentTransactions = useRecentTransactions(currentMonthTransactions, 5);
+  const recentTransactions = useRecentTransactions(transactions, 5);
+  
+  // Reset pan position when month changes
+  React.useEffect(() => {
+    pan.setValue({ x: 0, y: 0 });
+  }, [currentMonth]);
   
   const [modalVisible, setModalVisible] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+  
+  // Swipe navigation state
+  const pan = useRef(new Animated.ValueXY()).current;
+  const swipeThreshold = 100; // Minimum swipe distance to trigger navigation
 
   // Debug: Log currency on mount and when settings change
   React.useEffect(() => {
@@ -67,6 +76,77 @@ const HomeScreen: React.FC = () => {
     }
   };
 
+  // Swipe navigation handlers
+  const handleSwipeRight = async () => {
+    // Swipe right = previous month
+    const prevMonth = getPreviousMonthKey(currentMonth);
+    const firstMonthKey = settings.firstMonthKey;
+    
+    // Block navigation only if trying to go before the first month when user started using the app
+    if (firstMonthKey && prevMonth < firstMonthKey) {
+      // Block navigation - trying to go to month before first usage
+      return;
+    }
+    
+    await setCurrentMonth(prevMonth);
+    pan.setValue({ x: 0, y: 0 });
+  };
+
+  const handleSwipeLeft = async () => {
+    // Swipe left = next month
+    const nextMonth = getNextMonthKey(currentMonth);
+    
+    // Always allow navigation to next month (even if empty)
+    await setCurrentMonth(nextMonth);
+    pan.setValue({ x: 0, y: 0 });
+  };
+
+  // PanResponder for swipe gestures
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Only respond to horizontal swipes
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        // Only allow horizontal movement
+        const prevMonth = getPreviousMonthKey(currentMonth);
+        const firstMonthKey = settings.firstMonthKey;
+        const canSwipeRight = !firstMonthKey || prevMonth >= firstMonthKey;
+        const canSwipeLeft = true; // Always allow next month
+        
+        let dx = gestureState.dx;
+        
+        // Block right swipe if trying to go before first month when user started using the app
+        if (dx > 0 && !canSwipeRight) {
+          // Apply resistance - reduce movement
+          dx = dx * 0.3;
+        }
+        
+        pan.setValue({ x: dx, y: 0 });
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const swipeThreshold = 100;
+        
+        if (Math.abs(gestureState.dx) > swipeThreshold) {
+          if (gestureState.dx > 0) {
+            // Swipe right = previous month
+            handleSwipeRight();
+          } else {
+            // Swipe left = next month
+            handleSwipeLeft();
+          }
+        } else {
+          // Reset position if swipe wasn't far enough
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   const handleResetOnboarding = async () => {
     Alert.alert(
       'Reset Onboarding',
@@ -95,14 +175,16 @@ const HomeScreen: React.FC = () => {
   const remainingColor = totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary;
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.screenContainer,
         {
           backgroundColor: theme.colors.background,
-          paddingTop: insets.top,
+          // Removed paddingTop: insets.top - header already handles safe area
+          transform: [{ translateX: pan.x }],
         },
       ]}
+      {...panResponder.panHandlers}
     >
       <ScrollView
         contentContainerStyle={[
@@ -112,14 +194,6 @@ const HomeScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <SectionHeader
-            title="Monthly balance"
-            variant="overline"
-            style={styles.headerTitle}
-          />
-        </View>
 
         {/* Donut Chart Section */}
         <View style={styles.chartSection}>
@@ -133,7 +207,7 @@ const HomeScreen: React.FC = () => {
             showLabels={false}
             centerLabel={formatCurrency(totals.remaining, settings.currency)}
             centerLabelColor={remainingColor}
-            centerSubLabel={`Of ${formatCurrency(totals.income, settings.currency)} total`}
+            centerSubLabel={`Of ${formatCurrency(totals.income, settings.currency)} total\n${formatMonthShort(currentMonth)}`}
             centerSubLabelColor={theme.colors.textSecondary}
           />
           {totals.remaining < 0 && (
@@ -231,7 +305,7 @@ const HomeScreen: React.FC = () => {
         transactionToEdit={transactionToEdit}
         onClose={handleCloseModal}
       />
-    </View>
+    </Animated.View>
   );
 };
 
@@ -243,15 +317,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12.35, // Reduced by 20% from 15.44 (15.44 * 0.8 = 12.352)
+    paddingBottom: 24,
     gap: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  headerTitle: {
-    marginBottom: 8,
   },
   chartSection: {
     alignItems: 'center',

@@ -2,12 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
 import DetailsScreen from '../screens/DetailsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { useThemeStyles } from '../theme/ThemeProvider';
+import { SettingsIcon } from '../components/icons';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -22,7 +23,8 @@ type Props = {
   isOnboarded: boolean;
 };
 
-// Header button component for Settings
+// Header button component for Settings (gear icon)
+// Standardized positioning: marginRight matches safe area + standard header padding
 const SettingsHeaderButton = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const theme = useThemeStyles();
@@ -30,18 +32,13 @@ const SettingsHeaderButton = () => {
   return (
     <TouchableOpacity
       onPress={() => navigation.navigate('Settings')}
-      style={{ marginRight: theme.spacing.md }}
+      style={{ 
+        marginRight: 16, // Standard header right padding (matches React Navigation default)
+        padding: theme.spacing.xs,
+      }}
       activeOpacity={0.7}
     >
-      <Text
-        style={{
-          fontSize: theme.typography.fontSize.md,
-          color: theme.colors.accent,
-          fontWeight: theme.typography.fontWeight.medium,
-        }}
-      >
-        Settings
-      </Text>
+      <SettingsIcon size={24} color={theme.colors.textPrimary} />
     </TouchableOpacity>
   );
 };
@@ -79,7 +76,11 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         name="Home"
         component={HomeScreen}
         options={{
-          headerShown: false,
+          title: 'Home',
+          headerRight: () => <SettingsHeaderButton />,
+          contentStyle: {
+            paddingTop: 0, // Remove default padding, we'll handle it in component
+          },
         }}
       />
       <Stack.Screen

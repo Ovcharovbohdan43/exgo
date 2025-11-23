@@ -9,10 +9,11 @@ import { DonutChartWithPercentages } from '../components/DonutChartWithPercentag
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { Card } from '../components/layout';
 import { SectionHeader } from '../components/layout';
+import { formatMonthShort } from '../utils/month';
 
 const DetailsScreen: React.FC = () => {
   const theme = useThemeStyles();
-  const { transactions } = useTransactions();
+  const { transactions, currentMonth } = useTransactions();
   const { settings } = useSettings();
   const breakdown = useCategoryBreakdown(transactions);
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
@@ -50,7 +51,7 @@ const DetailsScreen: React.FC = () => {
           strokeWidth={24}
           centerLabel={formatCurrency(totals.remaining, settings.currency)}
           centerLabelColor={totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary}
-          centerSubLabel={totals.remaining < 0 ? 'Over budget' : 'Remaining'}
+          centerSubLabel={`${totals.remaining < 0 ? 'Over budget' : 'Remaining'}\n${formatMonthShort(currentMonth)}`}
           centerSubLabelColor={theme.colors.textSecondary}
         />
       </View>
