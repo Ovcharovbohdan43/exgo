@@ -10,12 +10,18 @@ export interface Transaction {
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
+export interface CustomCategory {
+  name: string;
+  emoji: string;
+}
+
 export interface UserSettings {
   currency: string;
   monthlyIncome: number;
   isOnboarded: boolean;
   firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
   themePreference?: ThemePreference; // Theme preference: 'light', 'dark', or 'system'
+  customCategories?: CustomCategory[]; // User-defined expense categories
 }
 
 export type NotificationType = 

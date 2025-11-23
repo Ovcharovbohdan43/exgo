@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ViewStyle } from 'react-native';
 import { Card } from '../layout';
 import { useThemeStyles } from '../../theme/ThemeProvider';
+import { useSettings } from '../../state/SettingsProvider';
 import { EXPENSE_CATEGORIES } from '../../constants/categories';
 import { TransactionType } from '../../types';
 import { getCategoryEmoji } from '../../utils/categoryEmojis';
+import { AddCategoryModal } from './AddCategoryModal';
+import { CustomCategory } from '../../types';
 
 type CategorySelectionStepProps = {
   type: TransactionType;
@@ -24,6 +27,10 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
   style,
 }) => {
   const theme = useThemeStyles();
+  const { settings, updateSettings } = useSettings();
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+
+  const customCategories = settings.customCategories || [];
 
   // For income, category is fixed
   if (type === 'income') {
@@ -70,9 +77,24 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
   }
 
   // For saved, default category is "Savings"
-  const categories = type === 'saved' 
+  const defaultCategories = type === 'saved' 
     ? ['Savings']
     : EXPENSE_CATEGORIES;
+
+  // Combine default and custom categories
+  const customCategoryNames = customCategories.map((cat) => cat.name);
+  const categories = [...defaultCategories, ...customCategoryNames];
+
+  const handleAddCategory = async (category: CustomCategory) => {
+    const updatedCategories = [...customCategories, category];
+    await updateSettings({ customCategories: updatedCategories });
+    // Automatically select the newly created category
+    onSelect(category.name);
+  };
+
+  const getAllCategoryNames = () => {
+    return [...defaultCategories, ...customCategoryNames];
+  };
 
   return (
     <View style={style}>
@@ -117,7 +139,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
                   borderWidth: isSelected ? 2 : 1,
                 }}
               >
-                <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+                <Text style={styles.categoryEmoji}>{getCategoryEmoji(category, customCategories)}</Text>
                 <Text
                   style={[
                     styles.categoryText,
@@ -138,7 +160,49 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
             </TouchableOpacity>
           );
         })}
+        
+        {/* Add Custom Category Button - only for expense type */}
+        {type === 'expense' && (
+          <TouchableOpacity
+            onPress={() => setShowAddCategoryModal(true)}
+            activeOpacity={0.7}
+          >
+            <Card
+              variant="outlined"
+              padding="md"
+              style={{
+                ...styles.categoryCard,
+                ...styles.addCategoryCard,
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                borderWidth: 1,
+                borderStyle: 'dashed',
+              }}
+            >
+              <Text style={styles.addCategoryIcon}>+</Text>
+              <Text
+                style={[
+                  styles.categoryText,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  },
+                ]}
+              >
+                Add Custom Category
+              </Text>
+            </Card>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      <AddCategoryModal
+        visible={showAddCategoryModal}
+        existingCategories={getAllCategoryNames()}
+        onClose={() => setShowAddCategoryModal(false)}
+        onSave={handleAddCategory}
+      />
     </View>
   );
 };
@@ -177,6 +241,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   categoryText: {
+    textAlign: 'center',
+  },
+  addCategoryCard: {
+    borderStyle: 'dashed',
+  },
+  addCategoryIcon: {
+    fontSize: 32,
+    color: '#9ca3af',
+    marginBottom: 4,
     textAlign: 'center',
   },
 });

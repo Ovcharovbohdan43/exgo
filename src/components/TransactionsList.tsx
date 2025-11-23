@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, ViewStyle, TouchableOpacity, Alert } 
 import { Swipeable } from 'react-native-gesture-handler';
 import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
+import { useSettings } from '../state/SettingsProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
@@ -35,6 +36,8 @@ type GroupedTransaction = {
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme, onPress, onDelete }) => {
   const swipeableRef = useRef<Swipeable>(null);
+  const { settings } = useSettings();
+  const customCategories = settings.customCategories || [];
 
   const handleDelete = () => {
     Alert.alert(
@@ -119,7 +122,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
             {getTypeLabel()}
           </Text>
           <View style={styles.categoryRow}>
-            <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category)}</Text>
+            <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category, customCategories)}</Text>
             <Text
               style={[
                 styles.category,

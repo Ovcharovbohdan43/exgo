@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
 import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
+import { useSettings } from '../state/SettingsProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate } from '../utils/date';
@@ -24,6 +25,8 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
   style,
 }) => {
   const theme = useThemeStyles();
+  const { settings } = useSettings();
+  const customCategories = settings.customCategories || [];
 
   if (!transaction) {
     return (
@@ -87,7 +90,7 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
           {getTypeLabel()}
         </Text>
         <View style={styles.categoryRow}>
-          <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category)}</Text>
+          <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category, customCategories)}</Text>
           <Text
             style={[
               styles.category,

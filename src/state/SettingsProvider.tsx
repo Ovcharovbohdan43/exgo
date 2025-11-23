@@ -24,6 +24,7 @@ const defaultSettings: UserSettings = {
   monthlyIncome: 0,
   isOnboarded: false,
   themePreference: 'system',
+  customCategories: [],
 };
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);

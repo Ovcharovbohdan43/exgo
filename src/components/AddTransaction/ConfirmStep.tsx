@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Card } from '../layout';
 import { useThemeStyles } from '../../theme/ThemeProvider';
+import { useSettings } from '../../state/SettingsProvider';
 import { formatCurrency } from '../../utils/format';
 import { formatDate } from '../../utils/date';
 import { TransactionType } from '../../types';
@@ -29,6 +30,8 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   style,
 }) => {
   const theme = useThemeStyles();
+  const { settings } = useSettings();
+  const customCategories = settings.customCategories || [];
 
   const getTypeLabel = () => {
     switch (type) {
@@ -144,7 +147,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
             Category
           </Text>
           <View style={styles.categoryValue}>
-            <Text style={styles.categoryEmoji}>{getCategoryEmoji(category)}</Text>
+            <Text style={styles.categoryEmoji}>{getCategoryEmoji(category, customCategories)}</Text>
             <Text
               style={[
                 styles.value,
