@@ -12,9 +12,12 @@ import { Card } from '../components/layout';
 import { SectionHeader } from '../components/layout';
 import { EmptyState } from '../components/states';
 import { formatMonthShort } from '../utils/month';
+import { useTranslation } from 'react-i18next';
+import { getLocalizedCategory } from '../utils/categoryLocalization';
 
 const DetailsScreen: React.FC = () => {
   const theme = useThemeStyles();
+  const { t } = useTranslation();
   const { transactions, currentMonth } = useTransactions();
   const { settings } = useSettings();
   const breakdown = useCategoryBreakdown(transactions);
@@ -48,7 +51,7 @@ const DetailsScreen: React.FC = () => {
       {/* Header Section */}
       <View style={styles.header}>
         <SectionHeader
-          title="This month"
+          title={t('details.thisMonth')}
           variant="overline"
           style={styles.sectionHeader}
         />
@@ -65,7 +68,7 @@ const DetailsScreen: React.FC = () => {
           centerLabelValue={totals.remaining}
           centerLabelCurrency={settings.currency}
           centerLabelColor={totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary}
-          centerSubLabel={`${totals.remaining < 0 ? 'Over budget' : 'Remaining'}\n${formatMonthShort(currentMonth)}`}
+          centerSubLabel={`${totals.remaining < 0 ? t('home.overBudget') : t('home.remaining')}\n${formatMonthShort(currentMonth)}`}
           centerSubLabelColor={theme.colors.textSecondary}
           animationTrigger={chartAnimationKey}
         />
@@ -74,28 +77,34 @@ const DetailsScreen: React.FC = () => {
       {/* Categories Section */}
       <View style={styles.categoriesSection}>
         <SectionHeader
-          title="Expense Categories"
+          title={t('details.expenseCategories', { defaultValue: 'Expense Categories' })}
           variant="overline"
           style={styles.sectionHeader}
         />
         {data.length === 0 ? (
           <EmptyState
             icon="📊"
-            title="No expenses yet"
-            message="Start adding expense transactions to see your spending breakdown by category."
-            accessibilityLabel="No expenses. Start adding expense transactions to see your spending breakdown."
+            title={t('details.noExpenses')}
+            message={t('details.noExpensesMessage')}
+            accessibilityLabel={t('details.noExpensesAccessibility', { defaultValue: 'No expenses. Start adding expense transactions to see your spending breakdown.' })}
           />
         ) : (
           <View style={styles.categoriesList}>
-            {data.map(([category, stats]) => (
+            {data.map(([category, stats]) => {
+              const localizedCategory = getLocalizedCategory(category);
+              return (
               <TouchableOpacity
                 key={category}
                 onPress={() => handleCategoryPress(category)}
                 activeOpacity={0.7}
                 accessible={true}
-                accessibilityLabel={`${category} category, ${stats.percent.toFixed(1)} percent, ${formatCurrency(stats.amount, settings.currency)}`}
+                accessibilityLabel={t('details.categoryAccessibility', { 
+                  category: localizedCategory, 
+                  percent: stats.percent.toFixed(1), 
+                  amount: formatCurrency(stats.amount, settings.currency) 
+                })}
                 accessibilityRole="button"
-                accessibilityHint="Double tap to view transactions in this category"
+                accessibilityHint={t('details.viewCategoryHint', { defaultValue: 'Double tap to view transactions in this category' })}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Card variant="outlined" padding="md" style={styles.categoryCard}>
@@ -113,7 +122,7 @@ const DetailsScreen: React.FC = () => {
                             },
                           ]}
                         >
-                          {category}
+                          {localizedCategory}
                         </Text>
                       </View>
                       <Text
@@ -143,7 +152,8 @@ const DetailsScreen: React.FC = () => {
                   </View>
                 </Card>
               </TouchableOpacity>
-            ))}
+            );
+            })}
           </View>
         )}
       </View>

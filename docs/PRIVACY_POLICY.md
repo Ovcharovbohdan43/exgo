@@ -117,3 +117,4 @@ This Privacy Policy complies with:
 
 **Note**: This is a template Privacy Policy. Please review and customize it according to your specific needs and legal requirements. Consider consulting with a legal professional before publishing.
 
+

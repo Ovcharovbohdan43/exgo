@@ -11,9 +11,12 @@ import { useThemeStyles } from '../theme/ThemeProvider';
 import { useNotifications } from '../state/NotificationProvider';
 import { Notification } from '../types';
 import { formatDate } from '../utils/date';
+import { useTranslation } from 'react-i18next';
+import { getLocalizedNotificationTitle, getLocalizedNotificationMessage } from '../utils/notificationLocalization';
 
 const NotificationsScreen: React.FC = () => {
   const theme = useThemeStyles();
+  const { t, i18n } = useTranslation();
   const { notifications, markAsRead, deleteNotification } = useNotifications();
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
@@ -58,7 +61,7 @@ const NotificationsScreen: React.FC = () => {
             },
           ]}
         >
-          Delete
+          {t('notifications.delete')}
         </Text>
       </View>
     );
@@ -113,7 +116,7 @@ const NotificationsScreen: React.FC = () => {
                 },
               ]}
             >
-              {item.title}
+              {getLocalizedNotificationTitle(item)}
             </Text>
             <Text
               style={[
@@ -125,7 +128,7 @@ const NotificationsScreen: React.FC = () => {
                 },
               ]}
             >
-              {item.message}
+              {getLocalizedNotificationMessage(item)}
             </Text>
             <Text
               style={[
@@ -155,6 +158,8 @@ const NotificationsScreen: React.FC = () => {
 
   const allNotifications = [...unreadNotifications, ...readNotifications];
 
+  // Use i18n.language as key to force re-render when language changes
+  // This ensures notifications are re-translated when language changes
   return (
     <View
       style={[
@@ -173,11 +178,12 @@ const NotificationsScreen: React.FC = () => {
               },
             ]}
           >
-            No notifications yet
+            {t('notifications.noNotifications')}
           </Text>
         </View>
       ) : (
         <FlatList
+          key={i18n.language} // Force re-render when language changes
           data={allNotifications}
           renderItem={renderNotification}
           keyExtractor={(item) => item.id}

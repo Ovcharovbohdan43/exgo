@@ -7,6 +7,8 @@ import { formatCurrency } from '../../utils/format';
 import { formatDate } from '../../utils/date';
 import { TransactionType } from '../../types';
 import { getCategoryEmoji } from '../../utils/categoryEmojis';
+import { useTranslation } from 'react-i18next';
+import { getLocalizedCategory } from '../../utils/categoryLocalization';
 
 type ConfirmStepProps = {
   type: TransactionType;
@@ -31,17 +33,11 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
 }) => {
   const theme = useThemeStyles();
   const { settings } = useSettings();
+  const { t } = useTranslation();
   const customCategories = settings.customCategories || [];
 
   const getTypeLabel = () => {
-    switch (type) {
-      case 'expense':
-        return 'Expense';
-      case 'income':
-        return 'Income';
-      case 'saved':
-        return 'Saved';
-    }
+    return t(`transactions.type.${type}`);
   };
 
   const getTypeColor = () => {
@@ -71,7 +67,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
           },
         ]}
       >
-        Confirm Transaction
+        {t('addTransaction.confirmTransaction')}
       </Text>
 
       <Card variant="elevated" padding="lg" style={styles.confirmCard}>
@@ -86,7 +82,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            Type
+            {t('addTransaction.type')}
           </Text>
           <Text
             style={[
@@ -115,7 +111,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            Amount
+            {t('addTransaction.amount')}
           </Text>
           <Text
             style={[
@@ -144,7 +140,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            Category
+            {t('addTransaction.category')}
           </Text>
           <View style={styles.categoryValue}>
             <Text style={styles.categoryEmoji}>{getCategoryEmoji(category, customCategories)}</Text>
@@ -158,7 +154,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
                 },
               ]}
             >
-              {category || 'N/A'}
+              {category ? getLocalizedCategory(category) : 'N/A'}
             </Text>
           </View>
         </View>
@@ -176,7 +172,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            Date
+            {t('addTransaction.date')}
           </Text>
           <Text
             style={[

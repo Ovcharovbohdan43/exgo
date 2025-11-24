@@ -13,6 +13,7 @@ import { ThemePreference } from './types';
 import { logError, SentryErrorBoundary, addBreadcrumb } from './services/sentry';
 import { LockScreen } from './screens/LockScreen';
 import { isAuthenticationRequired } from './services/authentication';
+import { useTranslation } from 'react-i18next';
 
 // Temporary kill-switch to bypass Face ID/biometric lock during development.
 // Set back to false before production/TestFlight so biometric lock works.
@@ -324,17 +325,19 @@ const ThemeWrapper = () => {
 };
 
 const AppRoot = () => {
+  const { t } = useTranslation();
+  
   return (
     <SentryErrorBoundary
       fallback={({ error, resetError }) => (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorTitle}>{t('alerts.somethingWentWrong')}</Text>
           <Text style={styles.errorMessage}>{error.message}</Text>
           <TouchableOpacity
             onPress={resetError}
             style={[styles.retryButton, { backgroundColor: '#007AFF', padding: 12, borderRadius: 8 }]}
           >
-            <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Try Again</Text>
+            <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>{t('alerts.tryAgain')}</Text>
           </TouchableOpacity>
         </View>
       )}

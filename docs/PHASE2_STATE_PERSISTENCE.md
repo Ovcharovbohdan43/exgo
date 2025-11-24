@@ -281,3 +281,4 @@ const { settings, updateSettings, loading, error, retryHydration } = useSettings
 3. Офлайн-очередь для операций записи
 4. Синхронизация между устройствами (если потребуется)
 
+

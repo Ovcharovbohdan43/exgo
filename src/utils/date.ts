@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 export const isCurrentMonth = (isoDate: string): boolean => {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return false;
@@ -10,6 +12,7 @@ export const isCurrentMonth = (isoDate: string): boolean => {
  * Format date to readable string
  * @param isoDate - ISO date string
  * @returns Formatted date string (e.g., "Jan 15" or "Today", "Yesterday")
+ * Uses i18n for localization
  */
 export const formatDate = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -22,15 +25,18 @@ export const formatDate = (isoDate: string): string => {
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   if (dateOnly.getTime() === today.getTime()) {
-    return 'Today';
+    return i18n.t('date.today');
   }
   if (dateOnly.getTime() === yesterday.getTime()) {
-    return 'Yesterday';
+    return i18n.t('date.yesterday');
   }
 
-  // Format as "Jan 15" or "Dec 31"
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[date.getMonth()]} ${date.getDate()}`;
+  // Format as "Jan 15" or "Dec 31" using localized month names
+  const monthKeys = ['january', 'february', 'march', 'april', 'may', 'june', 
+                     'july', 'august', 'september', 'october', 'november', 'december'];
+  const monthKey = monthKeys[date.getMonth()];
+  const monthShort = i18n.t(`date.monthsShort.${monthKey}`);
+  return `${monthShort} ${date.getDate()}`;
 };
 
 /**
@@ -56,6 +62,7 @@ export const getDateKey = (isoDate: string): string => {
  * Format date with day of week for section headers
  * @param isoDate - ISO date string
  * @returns Formatted date string with day of week (e.g., "Today, Saturday" or "Jan 15, Monday")
+ * Uses i18n for localization
  */
 export const formatDateWithDay = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -67,17 +74,22 @@ export const formatDateWithDay = (isoDate: string): string => {
   yesterday.setDate(yesterday.getDate() - 1);
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayOfWeek = daysOfWeek[date.getDay()];
+  // Get localized day of week
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayKey = dayKeys[date.getDay()];
+  const dayOfWeek = i18n.t(`date.daysOfWeek.${dayKey}`);
 
   if (dateOnly.getTime() === today.getTime()) {
-    return `Today, ${dayOfWeek}`;
+    return `${i18n.t('date.today')}, ${dayOfWeek}`;
   }
   if (dateOnly.getTime() === yesterday.getTime()) {
-    return `Yesterday, ${dayOfWeek}`;
+    return `${i18n.t('date.yesterday')}, ${dayOfWeek}`;
   }
 
-  // Format as "Jan 15, Monday" or "Dec 31, Friday"
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[date.getMonth()]} ${date.getDate()}, ${dayOfWeek}`;
+  // Format as "Jan 15, Monday" or "Dec 31, Friday" using localized month names
+  const monthKeys = ['january', 'february', 'march', 'april', 'may', 'june', 
+                     'july', 'august', 'september', 'october', 'november', 'december'];
+  const monthKey = monthKeys[date.getMonth()];
+  const monthShort = i18n.t(`date.monthsShort.${monthKey}`);
+  return `${monthShort} ${date.getDate()}, ${dayOfWeek}`;
 };

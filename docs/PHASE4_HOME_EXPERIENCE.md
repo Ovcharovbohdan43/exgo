@@ -231,3 +231,4 @@ const currentMonthTransactions = useCurrentMonthTransactions(transactions);
 4. Расширенная статистика (графики, тренды)
 5. Виджеты для быстрого доступа
 
+

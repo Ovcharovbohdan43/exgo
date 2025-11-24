@@ -11,9 +11,11 @@ import { MonthPicker } from '../components/MonthPicker';
 import { ErrorState } from '../components/states';
 import { generateReportHTML, MonthlyReportData } from '../utils/pdfReport';
 import { getMonthKey, formatMonthName } from '../utils/month';
-import { ThemePreference } from '../types';
+import { ThemePreference, SupportedLanguage } from '../types';
 import { BUTTON_HIT_SLOP } from '../utils/accessibility';
 import { checkBiometricAvailability, validatePIN, hashPIN } from '../services/authentication';
+import { useTranslation } from 'react-i18next';
+import { supportedLanguages } from '../i18n';
 
 type TabType = 'personalization' | 'general' | 'security';
 
@@ -22,9 +24,11 @@ const SettingsScreen: React.FC = () => {
   const { setColorScheme } = useTheme();
   const { settings, updateSettings } = useSettings();
   const { resetTransactions, transactionsByMonth } = useTransactions();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('personalization');
   const [currency, setCurrency] = useState(settings.currency);
   const [income, setIncome] = useState(String(settings.monthlyIncome));
+  const currentLanguage = settings.language || 'en';
   const [exportMonth, setExportMonth] = useState(getMonthKey());
   const [isExporting, setIsExporting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -69,7 +73,7 @@ const SettingsScreen: React.FC = () => {
       setSaveError(null);
       const monthlyIncome = Number(income) || 0;
       await updateSettings({ currency: currency || 'USD', monthlyIncome });
-      Alert.alert('Success', 'Settings saved successfully!');
+      Alert.alert(t('alerts.success'), t('alerts.settingsSaved'));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save settings';
       setSaveError(errorMessage);
@@ -82,6 +86,10 @@ const SettingsScreen: React.FC = () => {
     setColorScheme(preference);
   };
 
+  const handleLanguageChange = async (language: SupportedLanguage) => {
+    await updateSettings({ language });
+  };
+
   const handleExportPDF = async () => {
     try {
       setIsExporting(true);
@@ -89,7 +97,7 @@ const SettingsScreen: React.FC = () => {
       const monthTransactions = transactionsByMonth[exportMonth] || [];
       
       if (monthTransactions.length === 0) {
-        Alert.alert('No Data', 'No transactions found for the selected month.');
+        Alert.alert(t('alerts.noData'), t('alerts.noTransactionsForMonth'));
         setIsExporting(false);
         return;
       }
@@ -130,31 +138,31 @@ const SettingsScreen: React.FC = () => {
       if (canShare) {
         await Sharing.shareAsync(newUri, {
           mimeType: 'application/pdf',
-          dialogTitle: 'Export Monthly Report',
+          dialogTitle: t('alerts.exportMonthlyReport'),
           UTI: 'com.adobe.pdf',
         });
       } else {
         Alert.alert(
-          'PDF Generated',
-          `PDF saved to: ${newUri}`,
-          [{ text: 'OK' }]
+          t('alerts.pdfGenerated'),
+          t('alerts.pdfSavedTo', { path: newUri }),
+          [{ text: t('alerts.ok') }]
         );
       }
     } catch (error) {
       console.error('[SettingsScreen] PDF export error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to export PDF. Please try again.';
       setExportError(errorMessage);
-      Alert.alert('Error', errorMessage);
+      Alert.alert(t('alerts.error'), errorMessage);
     } finally {
       setIsExporting(false);
     }
   };
 
   const handleReset = async () => {
-    Alert.alert('Reset all data?', 'This will clear settings and transactions.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('alerts.resetAllData'), t('alerts.resetConfirm'), [
+      { text: t('alerts.cancel'), style: 'cancel' },
       {
-        text: 'Reset',
+        text: t('alerts.reset'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -163,9 +171,9 @@ const SettingsScreen: React.FC = () => {
             // Reset both providers to defaults
             await updateSettings({ currency: 'USD', monthlyIncome: 0, isOnboarded: false });
             await resetTransactions();
-            Alert.alert('Success', 'All data has been reset.');
+            Alert.alert(t('alerts.success'), t('alerts.allDataReset'));
           } catch (error) {
-            Alert.alert('Error', 'Failed to reset data. Please try again.');
+            Alert.alert(t('alerts.error'), t('alerts.resetError'));
             console.error('[SettingsScreen] Reset error:', error);
           }
         },
@@ -176,8 +184,8 @@ const SettingsScreen: React.FC = () => {
   const handleBiometricToggle = async (enabled: boolean) => {
     if (enabled && !biometricAvailable) {
       Alert.alert(
-        'Biometric Not Available',
-        `${biometricName} is not available on this device or not enrolled.`
+        t('settings.biometricAuth'),
+        t('settings.biometricNotAvailable', { name: biometricName })
       );
       return;
     }
@@ -197,12 +205,12 @@ const SettingsScreen: React.FC = () => {
 
   const handlePINSetup = async () => {
     if (!validatePIN(pin)) {
-      Alert.alert('Invalid PIN', 'PIN must be 4-6 digits.');
+      Alert.alert(t('alerts.invalidPIN'), t('alerts.pinMustBeDigits'));
       return;
     }
 
     if (pin !== confirmPin) {
-      Alert.alert('PIN Mismatch', 'PINs do not match. Please try again.');
+      Alert.alert(t('alerts.pinMismatch'), t('alerts.pinsDoNotMatch'));
       setPin('');
       setConfirmPin('');
       return;
@@ -222,17 +230,17 @@ const SettingsScreen: React.FC = () => {
     setConfirmPin('');
     setShowPINSetup(false);
     setEnablePIN(true);
-    Alert.alert('Success', 'PIN has been set successfully.');
+    Alert.alert(t('alerts.success'), t('alerts.pinSetSuccess'));
   };
 
   const handlePINChange = async () => {
     if (!validatePIN(pin)) {
-      Alert.alert('Invalid PIN', 'PIN must be 4-6 digits.');
+      Alert.alert(t('alerts.invalidPIN'), t('alerts.pinMustBeDigits'));
       return;
     }
 
     if (pin !== confirmPin) {
-      Alert.alert('PIN Mismatch', 'PINs do not match. Please try again.');
+      Alert.alert(t('alerts.pinMismatch'), t('alerts.pinsDoNotMatch'));
       setPin('');
       setConfirmPin('');
       return;
@@ -243,17 +251,17 @@ const SettingsScreen: React.FC = () => {
     setPin('');
     setConfirmPin('');
     setShowPINSetup(false);
-    Alert.alert('Success', 'PIN has been changed successfully.');
+    Alert.alert(t('alerts.success'), t('alerts.pinChangedSuccess'));
   };
 
   const handlePINRemove = async () => {
     Alert.alert(
-      'Remove PIN',
-      'Are you sure you want to remove PIN authentication?',
+      t('settings.removePin'),
+      t('alerts.removePINConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('alerts.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('settings.removePin'),
           style: 'destructive',
           onPress: async () => {
             await updateSettings({
@@ -261,7 +269,7 @@ const SettingsScreen: React.FC = () => {
               pin: undefined,
             });
             setEnablePIN(false);
-            Alert.alert('Success', 'PIN has been removed.');
+            Alert.alert(t('alerts.success'), t('alerts.pinRemovedSuccess'));
           },
         },
       ]
@@ -315,6 +323,50 @@ const SettingsScreen: React.FC = () => {
                   ]}
                 >
                   {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'System'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        
+        <Text style={[styles.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.lg, marginBottom: theme.spacing.xs }]}>
+          {t('settings.language')}
+        </Text>
+        <View style={styles.themeOptions}>
+          {supportedLanguages.map((lang) => {
+            const isSelected = currentLanguage === lang.code;
+            return (
+              <TouchableOpacity
+                key={lang.code}
+                onPress={() => handleLanguageChange(lang.code)}
+                style={[
+                  styles.themeOption,
+                  {
+                    backgroundColor: isSelected ? theme.colors.accent : theme.colors.surface,
+                    borderColor: isSelected ? theme.colors.accent : theme.colors.border,
+                    borderWidth: 1,
+                  },
+                ]}
+                accessible={true}
+                accessibilityLabel={`${lang.name}${isSelected ? ', selected' : ''}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityHint="Double tap to change language"
+                hitSlop={BUTTON_HIT_SLOP}
+              >
+                <Text
+                  style={[
+                    styles.themeOptionText,
+                    {
+                      color: isSelected ? theme.colors.background : theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: isSelected
+                        ? theme.typography.fontWeight.semibold
+                        : theme.typography.fontWeight.medium,
+                    },
+                  ]}
+                >
+                  {lang.name}
                 </Text>
               </TouchableOpacity>
             );

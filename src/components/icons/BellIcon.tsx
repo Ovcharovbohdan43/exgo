@@ -45,3 +45,4 @@ export const BellIcon: React.FC<Props> = ({ size = 24, color }) => {
   );
 };
 
+

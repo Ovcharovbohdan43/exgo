@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useCall
 import { loadSettings, saveSettings } from '../services/storage';
 import { UserSettings } from '../types';
 import { logError, addBreadcrumb } from '../services/sentry';
+import { changeLanguage, getCurrentLanguage } from '../i18n';
 
 export type SettingsError = {
   message: string;
@@ -25,6 +26,7 @@ const defaultSettings: UserSettings = {
   monthlyIncome: 0,
   isOnboarded: false,
   themePreference: 'system',
+  language: 'en', // Default to English
   customCategories: [], // Will contain both expense and income custom categories
   enableBiometric: false,
   enablePIN: false,
@@ -55,14 +57,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           enableBiometric: stored.enableBiometric ?? false,
           enablePIN: stored.enablePIN ?? false,
           pin: stored.pin,
+          // Ensure language has proper default
+          language: stored.language ?? 'en',
         };
         setSettings(mergedSettings);
+        
+        // Initialize i18n language
+        if (mergedSettings.language) {
+          changeLanguage(mergedSettings.language);
+        }
+        
         console.log('[SettingsProvider] Settings set to:', mergedSettings);
         addBreadcrumb('Settings loaded from storage', 'storage', 'info', {
           hasSettings: true,
           currency: mergedSettings.currency,
           enableBiometric: mergedSettings.enableBiometric,
           enablePIN: mergedSettings.enablePIN,
+          language: mergedSettings.language,
         });
       } else {
         // Initialize with defaults if no stored data
@@ -104,6 +115,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     async (next: UserSettings): Promise<void> => {
       setError(null);
       console.log('[SettingsProvider] Persisting settings:', next);
+      
+      // Update language if changed - compare with current i18n language, not settings state
+      // This fixes the bug where language doesn't change back from Ukrainian to English
+      const currentI18nLanguage = getCurrentLanguage();
+      if (next.language && next.language !== currentI18nLanguage) {
+        console.log('[SettingsProvider] Language changed from', currentI18nLanguage, 'to', next.language);
+        changeLanguage(next.language);
+      }
+      
       // Optimistic update: update state immediately for better UX
       setSettings(next);
       console.log('[SettingsProvider] Settings updated optimistically');
@@ -112,6 +132,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.log('[SettingsProvider] Settings saved to storage successfully');
         addBreadcrumb('Settings saved to storage', 'storage', 'info', {
           currency: next.currency,
+          language: next.language,
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to save settings';

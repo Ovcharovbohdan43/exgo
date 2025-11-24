@@ -37,3 +37,4 @@ export const clearSettings = async (): Promise<void> => {
   }
 };
 
+

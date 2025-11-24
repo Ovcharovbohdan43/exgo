@@ -8,6 +8,8 @@ import { TransactionType } from '../../types';
 import { getCategoryEmoji } from '../../utils/categoryEmojis';
 import { AddCategoryModal } from './AddCategoryModal';
 import { CustomCategory } from '../../types';
+import { useTranslation } from 'react-i18next';
+import { getLocalizedCategory } from '../../utils/categoryLocalization';
 
 type CategorySelectionStepProps = {
   type: TransactionType;
@@ -28,6 +30,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
 }) => {
   const theme = useThemeStyles();
   const { settings, updateSettings } = useSettings();
+  const { t } = useTranslation();
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   const customCategories = settings.customCategories || [];
@@ -62,7 +65,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
             },
           ]}
         >
-          Select Category
+          {t('addTransaction.selectCategory')}
         </Text>
         
         <ScrollView
@@ -107,7 +110,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
                       },
                     ]}
                   >
-                    {category}
+                    {getLocalizedCategory(category)}
                   </Text>
                 </Card>
               </TouchableOpacity>
@@ -142,7 +145,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
                   },
                 ]}
               >
-                Add Custom Category
+                {t('addTransaction.addCustomCategory')}
               </Text>
             </Card>
           </TouchableOpacity>
@@ -185,7 +188,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
           },
         ]}
       >
-        {type === 'saved' ? 'Category' : 'Select Category'}
+        {type === 'saved' ? t('addTransaction.category') : t('addTransaction.selectCategory')}
       </Text>
       
       <ScrollView
@@ -230,7 +233,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
                     },
                   ]}
                 >
-                  {category}
+                  {getLocalizedCategory(category)}
                 </Text>
               </Card>
             </TouchableOpacity>
@@ -266,7 +269,7 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
                   },
                 ]}
               >
-                Add Custom Category
+                {t('addTransaction.addCustomCategory')}
               </Text>
             </Card>
           </TouchableOpacity>

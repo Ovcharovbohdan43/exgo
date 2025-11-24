@@ -6,6 +6,7 @@ import { useSettings } from './SettingsProvider';
 import { useTransactions } from './TransactionsProvider';
 import { getMonthKey, getPreviousMonthKey } from '../utils/month';
 import { calculateTotals } from '../modules/calculations';
+import i18n from '../i18n';
 
 type NotificationContextValue = {
   notifications: Notification[];
@@ -138,9 +139,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const newNotification: Notification = {
             id: uuidv4(),
             type: 'monthly_start_high_spending',
-            title: 'High Spending Alert',
-            message:
-              'We noticed high spending activity at the start of the month. Keep an eye on your budget to stay on track.',
+            title: i18n.t('notifications.highSpendingAlert.title'),
+            message: i18n.t('notifications.highSpendingAlert.message'),
             createdAt: now.toISOString(),
             read: false,
             monthKey: currentMonthKey,
@@ -174,9 +174,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const newNotification: Notification = {
           id: uuidv4(),
           type: 'negative_balance',
-          title: 'Funds Exhausted',
-          message:
-            'All available funds have been exhausted. Please check if everything is okay. If you forgot to add any income, please add it so the app can work correctly.',
+          title: i18n.t('notifications.fundsExhausted.title'),
+          message: i18n.t('notifications.fundsExhausted.message'),
           createdAt: now.toISOString(),
           read: false,
           monthKey: currentMonthKey,
@@ -211,9 +210,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const newNotification: Notification = {
             id: uuidv4(),
             type: 'overspending_50_percent',
-            title: 'Overspending Alert',
-            message:
-              "You've used more than half of your monthly budget. Consider slowing down your spending pace.",
+            title: i18n.t('notifications.overspendingAlert.title'),
+            message: i18n.t('notifications.overspendingAlert.message'),
             createdAt: now.toISOString(),
             read: false,
             monthKey: currentMonthKey,
@@ -268,9 +266,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const newNotification: Notification = {
             id: uuidv4(),
             type: 'large_expense_spike',
-            title: 'Large Expense Alert',
-            message:
-              'A large expense was recorded. Make sure this fits your monthly plan.',
+            title: i18n.t('notifications.largeExpenseAlert.title'),
+            message: i18n.t('notifications.largeExpenseAlert.message'),
             createdAt: now.toISOString(),
             read: false,
             monthKey: currentMonthKey,
@@ -322,9 +319,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const newNotification: Notification = {
             id: uuidv4(),
             type: 'low_balance_20_percent',
-            title: 'Low Balance Warning',
-            message:
-              'Your remaining balance is getting low. Stay cautious with your upcoming expenses.',
+            title: i18n.t('notifications.lowBalanceWarning.title'),
+            message: i18n.t('notifications.lowBalanceWarning.message'),
             createdAt: now.toISOString(),
             read: false,
             monthKey: currentMonthKey,

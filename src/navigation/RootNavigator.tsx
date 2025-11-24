@@ -11,6 +11,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { SettingsIcon, BellIcon } from '../components/icons';
 import { useNotifications } from '../state/NotificationProvider';
+import { useTranslation } from 'react-i18next';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -102,6 +103,7 @@ const NotificationHeaderButton = () => {
 
 const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
   const theme = useThemeStyles();
+  const { t } = useTranslation();
 
   return (
     <Stack.Navigator
@@ -133,7 +135,7 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Home',
+          title: t('home.title'),
           headerLeft: () => <NotificationHeaderButton />,
           headerRight: () => <SettingsHeaderButton />,
           contentStyle: {
@@ -145,7 +147,7 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         name="Details"
         component={DetailsScreen}
         options={{
-          title: 'Spending Breakdown',
+          title: t('details.title'),
           headerRight: () => <SettingsHeaderButton />,
         }}
       />
@@ -153,7 +155,7 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         name="Settings"
         component={SettingsScreen}
         options={{
-          title: 'Settings',
+          title: t('settings.title'),
           presentation: 'modal', // iOS modal presentation
         }}
       />
@@ -161,7 +163,7 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         name="Notifications"
         component={NotificationsScreen}
         options={{
-          title: 'Notifications',
+          title: t('notifications.title'),
           presentation: 'modal', // iOS modal presentation
         }}
       />

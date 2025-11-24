@@ -7,6 +7,7 @@ import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate } from '../utils/date';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
+import { useTranslation } from 'react-i18next';
 
 type LastTransactionPreviewProps = {
   transaction: Transaction | null;
@@ -26,6 +27,7 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
 }) => {
   const theme = useThemeStyles();
   const { settings } = useSettings();
+  const { t, i18n } = useTranslation();
   const customCategories = settings.customCategories || [];
 
   if (!transaction) {

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import DonutChart from './DonutChart';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
   spent: number;
@@ -40,6 +41,7 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
   animationTrigger,
 }) => {
   const theme = useThemeStyles();
+  const { t } = useTranslation();
   const clampedRemaining = Math.max(remaining, 0);
   const total = Math.max(spent + saved + clampedRemaining, 1);
 
@@ -81,7 +83,7 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
               },
             ]}
           >
-            Spent: {percentages.spent.toFixed(1)}%
+            {t('details.chart.spent')}: {percentages.spent.toFixed(1)}%
           </Text>
         </View>
         
@@ -96,7 +98,7 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
               },
             ]}
           >
-            Saved: {percentages.saved.toFixed(1)}%
+            {t('details.chart.saved')}: {percentages.saved.toFixed(1)}%
           </Text>
         </View>
         
@@ -111,7 +113,7 @@ export const DonutChartWithPercentages: React.FC<Props> = ({
               },
             ]}
           >
-            {remaining < 0 ? 'Over budget' : 'Remaining'}: {percentages.remaining.toFixed(1)}%
+            {remaining < 0 ? t('details.chart.overBudget') : t('details.chart.remaining')}: {percentages.remaining.toFixed(1)}%
           </Text>
         </View>
       </View>

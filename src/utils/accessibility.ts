@@ -73,3 +73,4 @@ export const getButtonAccessibilityHint = (action: string): string => {
   return `Double tap to ${action.toLowerCase()}`;
 };
 
+

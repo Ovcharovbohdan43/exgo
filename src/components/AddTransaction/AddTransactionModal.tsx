@@ -9,6 +9,7 @@ import { CategorySelectionStep } from './CategorySelectionStep';
 import { ConfirmStep } from './ConfirmStep';
 import { parseMonthKey, getMonthKey } from '../../utils/month';
 import { trackTransactionCreated, trackTransactionUpdated } from '../../services/analytics';
+import { useTranslation } from 'react-i18next';
 
 type AddTransactionModalProps = {
   visible: boolean;
@@ -32,6 +33,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onClose,
 }) => {
   const theme = useThemeStyles();
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const { addTransaction, updateTransaction } = useTransactions();
   const isEditMode = !!transactionToEdit;
@@ -140,10 +142,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           createdAt: transactionToEdit.createdAt, // Keep original date
         });
 
-        const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';
-        Alert.alert('Success', `${typeLabel} updated successfully!`, [
+        const typeLabel = t(`transactions.type.${type}`);
+        Alert.alert(t('alerts.success'), t('alerts.transactionUpdated', { type: typeLabel }), [
           {
-            text: 'OK',
+            text: t('alerts.ok'),
             onPress: () => {
               onClose();
             },
@@ -171,10 +173,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           month: getMonthKey(new Date(createdAt)),
         });
 
-        const typeLabel = type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Saved';
-        Alert.alert('Success', `${typeLabel} added successfully!`, [
+        const typeLabel = t(`transactions.type.${type}`);
+        Alert.alert(t('alerts.success'), t('alerts.transactionAdded', { type: typeLabel }), [
           {
-            text: 'OK',
+            text: t('alerts.ok'),
             onPress: () => {
               onClose();
             },
@@ -212,12 +214,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     if (isSaving) return;
     
     Alert.alert(
-      'Cancel Transaction?',
-      'Are you sure you want to cancel? All entered data will be lost.',
+      t('alerts.cancelTransaction'),
+      t('alerts.cancelTransactionConfirm'),
       [
-        { text: 'Continue Editing', style: 'cancel' },
+        { text: t('alerts.continueEditing'), style: 'cancel' },
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'destructive',
           onPress: onClose,
         },

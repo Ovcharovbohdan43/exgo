@@ -20,6 +20,7 @@ import { clearAllData } from '../utils/devReset';
 import { Transaction } from '../types';
 import { formatMonthShort, getMonthKey, getPreviousMonthKey, getNextMonthKey, isCurrentMonth as isCurrentMonthKey } from '../utils/month';
 import { trackBudgetExceeded } from '../services/analytics';
+import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -30,6 +31,7 @@ const HomeScreen: React.FC = () => {
   const { settings } = useSettings();
   const { transactions, currentMonth, setCurrentMonth, deleteTransaction, hasMonthData } = useTransactions();
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
+  const { t } = useTranslation();
   
   // State for managing how many transactions to show
   const [displayLimit, setDisplayLimit] = React.useState(10);
@@ -144,7 +146,7 @@ const HomeScreen: React.FC = () => {
     try {
       await deleteTransaction(transaction.id);
     } catch (error) {
-      Alert.alert('Error', 'Failed to delete transaction. Please try again.');
+      Alert.alert(t('common.error'), t('home.deleteError'));
       console.error('[HomeScreen] Delete error:', error);
     }
   };
@@ -263,22 +265,22 @@ const HomeScreen: React.FC = () => {
 
   const handleResetOnboarding = async () => {
     Alert.alert(
-      'Reset Onboarding',
-      'This will clear all data and show onboarding screen again. Restart the app after reset.',
+      t('home.resetOnboardingTitle'),
+      t('home.resetOnboardingMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('settings.resetData'),
           style: 'destructive',
           onPress: async () => {
             try {
               await clearAllData();
               Alert.alert(
-                'Success',
-                'Data cleared! Please restart the app (close and reopen) to see onboarding.',
+                t('common.success'),
+                t('home.resetOnboardingSuccess'),
               );
             } catch (error) {
-              Alert.alert('Error', 'Failed to clear data. Check console for details.');
+              Alert.alert(t('common.error'), t('home.resetOnboardingError'));
             }
           },
         },
@@ -323,7 +325,7 @@ const HomeScreen: React.FC = () => {
             centerLabelValue={totals.remaining}
             centerLabelCurrency={settings.currency}
             centerLabelColor={remainingColor}
-            centerSubLabel={`Of ${formatCurrency(totals.income, settings.currency)} total\n${formatMonthShort(currentMonth)}`}
+            centerSubLabel={`${t('home.of')} ${formatCurrency(totals.income, settings.currency)} ${t('home.total')}\n${formatMonthShort(currentMonth)}`}
             centerSubLabelColor={theme.colors.textSecondary}
           />
           {totals.remaining < 0 && (
@@ -337,7 +339,7 @@ const HomeScreen: React.FC = () => {
                 },
               ]}
             >
-              Over budget by {formatCurrency(Math.abs(totals.remaining), settings.currency)}
+              {t('home.overBudget')} {formatCurrency(Math.abs(totals.remaining), settings.currency)}
             </Text>
           )}
         </View>
@@ -345,25 +347,25 @@ const HomeScreen: React.FC = () => {
         {/* Summary Stats Section */}
         <View style={styles.summarySection}>
           <SectionHeader
-            title="Summary"
+            title={t('home.summary')}
             variant="overline"
             style={styles.sectionHeader}
           />
           <View style={styles.summaryGrid}>
             <SummaryCard
-              label="Remaining"
+              label={t('home.remaining')}
               value={formatCurrency(totals.remaining, settings.currency)}
               variant={totals.remaining < 0 ? 'negative' : totals.remaining > 0 ? 'positive' : 'neutral'}
               style={styles.summaryCard}
             />
             <SummaryCard
-              label="Spent"
+              label={t('home.spent')}
               value={formatCurrency(totals.expenses, settings.currency)}
               variant="negative"
               style={styles.summaryCard}
             />
             <SummaryCard
-              label="Saved"
+              label={t('home.saved')}
               value={formatCurrency(totals.saved, settings.currency)}
               variant="positive"
               style={styles.summaryCard}
@@ -374,18 +376,18 @@ const HomeScreen: React.FC = () => {
         {/* Recent Transactions Section */}
         <View style={styles.recentTransactionsSection}>
           <SectionHeader
-            title="Recent Transactions"
+            title={t('home.recentTransactions')}
             variant="overline"
             style={styles.sectionHeader}
           />
           {transactions.length === 0 ? (
             <EmptyState
               icon="📝"
-              title="No transactions yet"
-              message="Start tracking your expenses, income, and savings by adding your first transaction."
-              actionLabel="Add Transaction"
+              title={t('home.noTransactions')}
+              message={t('home.noTransactionsMessage')}
+              actionLabel={t('home.addTransaction')}
               onAction={handleFABPress}
-              accessibilityLabel="No transactions. Tap to add your first transaction."
+              accessibilityLabel={t('home.noTransactionsAccessibility')}
             />
           ) : (
             <TransactionsList
@@ -428,7 +430,7 @@ const HomeScreen: React.FC = () => {
       >
         <FloatingActionButton 
           onPress={handleFABPress}
-          accessibilityLabel="Add transaction"
+          accessibilityLabel={t('home.addTransactionAccessibility')}
         />
       </View>
 

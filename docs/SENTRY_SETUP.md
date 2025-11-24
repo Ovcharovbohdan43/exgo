@@ -186,3 +186,4 @@ setContext('app', {
 - Sentry SDK: @sentry/react-native (latest)
 - Expo SDK: 54
 
+

@@ -4,6 +4,241 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-XX] - Localization: Spending Breakdown (Details Screen)
+
+#### Added
+- **Complete localization of Spending Breakdown screen**: All elements of the Details screen are now fully localized
+  - Donut chart legend labels (Spent, Saved, Remaining, Over budget) are now translated
+  - Section headers and empty states are localized
+  - Category accessibility labels are localized
+  - All user-facing strings use i18n translations
+
+#### Technical Details
+- Updated `src/components/DonutChartWithPercentages.tsx` to use `useTranslation` hook and translate legend labels
+- Updated `src/screens/DetailsScreen.tsx` to use localized accessibility labels for categories
+- Added new translation keys in `src/i18n/locales/en.json` and `src/i18n/locales/uk.json`:
+  - `details.chart.spent`, `details.chart.saved`, `details.chart.remaining`, `details.chart.overBudget`
+  - `details.categoryAccessibility` - for accessibility labels
+- DetailsScreen was already using translations for most strings, now all strings are localized
+- Navigation title for Details screen already uses `t('details.title')`
+
+#### Files Changed
+- `src/components/DonutChartWithPercentages.tsx` - Added useTranslation and localized legend labels
+- `src/screens/DetailsScreen.tsx` - Localized accessibility labels
+- `src/i18n/locales/en.json` - Added chart and category accessibility translations
+- `src/i18n/locales/uk.json` - Added Ukrainian translations for chart and category accessibility
+
+### [2025-01-XX] - Bug Fix: Language Switching - Date and Notification Updates
+
+#### Fixed
+- **Date labels not updating on language change**: Fixed issue where date labels in Recent Transactions list remained in previous language when switching back from Ukrainian to English
+  - Root cause: `useMemo` in `TransactionsList` didn't have dependency on i18n language, so dates weren't re-formatted when language changed
+  - Solution: Added `i18n.language` to `useMemo` dependencies in `TransactionsList` component
+  - Date labels now update immediately when language changes
+
+- **Notifications not updating on language change**: Fixed issue where notifications remained in previous language when switching languages
+  - Root cause: `FlatList` in `NotificationsScreen` didn't re-render when language changed
+  - Solution: Added `key={i18n.language}` to `FlatList` to force re-render when language changes
+  - Notifications now update immediately when language changes
+
+- **LastTransactionPreview not updating on language change**: Fixed issue where date in last transaction preview didn't update when language changed
+  - Root cause: Component wasn't subscribed to language changes via `useTranslation` hook
+  - Solution: Added `useTranslation` hook to `LastTransactionPreview` component
+  - Date now updates immediately when language changes
+
+#### Technical Details
+- Updated `src/components/TransactionsList.tsx` to include `i18n.language` in `useMemo` dependencies
+- Updated `src/screens/NotificationsScreen.tsx` to add `key={i18n.language}` to `FlatList` for forced re-render
+- Updated `src/components/LastTransactionPreview.tsx` to use `useTranslation` hook
+- All date formatting functions (`formatDate`, `formatDateWithDay`) already use i18n directly, so they always use current language
+- Components now properly subscribe to language changes and re-render when language is switched
+
+#### Files Changed
+- `src/components/TransactionsList.tsx` - Added i18n.language dependency to useMemo
+- `src/screens/NotificationsScreen.tsx` - Added key prop to FlatList for language change detection
+- `src/components/LastTransactionPreview.tsx` - Added useTranslation hook
+
+### [2025-01-XX] - Localization: Dynamic Notification Translation
+
+#### Added
+- **Dynamic notification translation**: Notifications in the Notifications screen are now translated dynamically based on current language
+  - Created `getLocalizedNotificationTitle()` and `getLocalizedNotificationMessage()` utilities
+  - Notifications are translated at display time, not at creation time
+  - Existing notifications automatically update when user changes language
+  - Works for all notification types: high spending, funds exhausted, overspending, large expense, low balance
+
+#### Technical Details
+- Created `src/utils/notificationLocalization.ts` with functions for dynamic notification translation
+- Updated `src/screens/NotificationsScreen.tsx` to use dynamic translation functions
+- Notifications are now translated based on their `type` field, not stored text
+- Fallback to original title/message if translation not found
+
+#### Files Changed
+- `src/utils/notificationLocalization.ts` - New utility for dynamic notification translation
+- `src/screens/NotificationsScreen.tsx` - Uses dynamic translation for notification titles and messages
+
+### [2025-01-XX] - Localization: All Notifications and Alerts
+
+#### Added
+- **Complete notification and alert localization**: All user notifications, alerts, and dialog messages are now fully localized
+  - All Alert.alert dialogs are now translated
+  - All system notifications (high spending, funds exhausted, overspending, etc.) are localized
+  - NotificationsScreen is fully localized
+  - Error messages and success messages are localized
+  - PIN-related alerts are localized
+  - Transaction creation/update alerts are localized
+  - Category creation alerts are localized
+  - Settings alerts (save, reset, export) are localized
+
+#### Technical Details
+- Updated `src/state/NotificationProvider.tsx` to use i18n for all notification titles and messages
+- Updated all Alert.alert calls in:
+  - `src/screens/SettingsScreen.tsx` - All settings-related alerts
+  - `src/components/AddTransaction/AddTransactionModal.tsx` - Transaction alerts
+  - `src/components/AddTransaction/AddCategoryModal.tsx` - Category alerts
+- Updated `src/screens/NotificationsScreen.tsx` to use localized strings
+- Updated `src/navigation/RootNavigator.tsx` - Notifications screen title
+- Updated `src/AppRoot.tsx` - Error boundary messages
+- Added new translation keys in `src/i18n/locales/en.json` and `src/i18n/locales/uk.json`:
+  - `notifications.*` - All notification types and messages
+  - `alerts.*` - All alert dialog messages (success, error, confirmations, etc.)
+
+#### Files Changed
+- `src/state/NotificationProvider.tsx` - Uses i18n for notification creation
+- `src/screens/SettingsScreen.tsx` - All Alert.alert calls use t()
+- `src/components/AddTransaction/AddTransactionModal.tsx` - All Alert.alert calls use t()
+- `src/components/AddTransaction/AddCategoryModal.tsx` - All Alert.alert calls use t()
+- `src/screens/NotificationsScreen.tsx` - Uses t() for UI strings
+- `src/navigation/RootNavigator.tsx` - Notifications title uses t()
+- `src/AppRoot.tsx` - Error boundary uses t()
+- `src/i18n/locales/en.json` - Added notification and alert translations
+- `src/i18n/locales/uk.json` - Added Ukrainian notification and alert translations
+
+### [2025-01-XX] - Localization: Date and Day of Week Labels
+
+#### Added
+- **Date and day of week localization**: All date labels in transaction lists are now fully localized
+  - "Today" and "Yesterday" labels are now translated
+  - Day of week names (Sunday, Monday, etc.) are now localized
+  - Short month names (Jan, Feb, etc.) are now localized
+  - Date headers in Recent Transactions section automatically use user's selected language
+
+#### Technical Details
+- Updated `src/utils/date.ts` to use i18n for all date formatting
+- `formatDate()` now uses localized "Today", "Yesterday", and month names
+- `formatDateWithDay()` now uses localized day of week names and month names
+- Added new translation keys in `src/i18n/locales/en.json` and `src/i18n/locales/uk.json`:
+  - `date.today`, `date.yesterday`
+  - `date.daysOfWeek.*` - all 7 days of week
+  - `date.monthsShort.*` - all 12 short month names
+
+#### Files Changed
+- `src/utils/date.ts` - Updated to use i18n for date formatting
+- `src/i18n/locales/en.json` - Added date translations
+- `src/i18n/locales/uk.json` - Added Ukrainian date translations
+
+### [2025-01-XX] - Localization: Categories and Month Names
+
+#### Added
+- **Category localization**: All expense categories are now fully localized
+  - Added translation keys for all 14 default expense categories (Groceries, Fuel, Rent, etc.)
+  - Added translations for Income and Savings categories
+  - Created `getLocalizedCategory()` utility function for easy category localization
+  - Categories are now displayed in user's selected language throughout the app
+
+- **Month names localization**: Month names in donut chart and other components now use i18n locale
+  - Updated `formatMonthShort()` to use current i18n language (en-US or uk-UA)
+  - Updated `formatMonthName()` to use current i18n language
+  - Month names automatically change when user switches language
+
+#### Technical Details
+- Created `src/utils/categoryLocalization.ts` with `getLocalizedCategory()` function
+- Updated `src/utils/month.ts` to import and use `getCurrentLanguage()` from i18n
+- Updated all components displaying categories:
+  - `CategorySelectionStep` - category selection in add transaction flow
+  - `TransactionsList` - category display in transaction items
+  - `ConfirmStep` - category display in transaction confirmation
+  - `DetailsScreen` - category display in spending breakdown
+- Added new translation keys in `src/i18n/locales/en.json` and `src/i18n/locales/uk.json`:
+  - `categories.*` - all category translations
+  - `details.expenseCategories`, `details.viewCategoryHint`, `details.noExpensesAccessibility`
+  - `addTransaction.addCustomCategory`
+
+#### Files Changed
+- `src/utils/categoryLocalization.ts` - New utility for category localization
+- `src/utils/month.ts` - Updated to use i18n locale for date formatting
+- `src/components/AddTransaction/CategorySelectionStep.tsx` - Uses localized categories
+- `src/components/AddTransaction/ConfirmStep.tsx` - Uses localized categories
+- `src/components/TransactionsList.tsx` - Uses localized categories
+- `src/screens/DetailsScreen.tsx` - Uses localized categories and month names
+- `src/i18n/locales/en.json` - Added category translations
+- `src/i18n/locales/uk.json` - Added Ukrainian category translations
+
+### [2025-01-XX] - Localization: Complete HomeScreen Localization
+
+#### Added
+- **Complete HomeScreen localization**: Fully localized all text elements on HomeScreen and related components
+  - Added missing translation keys for HomeScreen: summary, error messages, reset onboarding dialogs
+  - Added missing translation keys for TransactionsList: delete confirmations, accessibility labels, uncategorized label
+  - All user-facing strings now use i18n translations
+  - Support for both English and Ukrainian languages
+
+#### Technical Details
+- Updated `src/screens/HomeScreen.tsx` to use `t()` for all text strings
+- Updated `src/components/TransactionsList.tsx` to use `t()` for all text strings
+- Added new translation keys in `src/i18n/locales/en.json` and `src/i18n/locales/uk.json`:
+  - `home.summary`, `home.deleteError`, `home.resetOnboardingTitle`, etc.
+  - `transactions.deleteTitle`, `transactions.deleteConfirm`, `transactions.uncategorized`, etc.
+- All Alert dialogs, accessibility labels, and UI text are now localized
+
+#### Files Changed
+- `src/i18n/locales/en.json` - Added missing translation keys
+- `src/i18n/locales/uk.json` - Added Ukrainian translations
+- `src/screens/HomeScreen.tsx` - Replaced hardcoded strings with `t()` calls
+- `src/components/TransactionsList.tsx` - Replaced hardcoded strings with `t()` calls
+
+### [2025-01-XX] - Bug Fix: Language Switching Issue
+
+#### Fixed
+- **Language switching bug**: Fixed issue where switching from Ukrainian back to English language would not apply the change
+  - Root cause: `SettingsProvider.persist` was comparing new language with stale `settings.language` from closure
+  - Solution: Changed comparison to use current i18n language via `getCurrentLanguage()` instead of `settings.language`
+  - Language changes now work correctly in both directions (en ↔ uk)
+
+#### Technical Details
+- Modified `src/state/SettingsProvider.tsx` to import and use `getCurrentLanguage()` from i18n
+- Updated language change detection logic to compare with actual i18n state instead of React state
+- Added debug logging for language changes
+
+### [2025-01-XX] - Internationalization (i18n): Ukrainian Language Support
+
+#### Added
+- **Internationalization (i18n)**: Added support for Ukrainian language
+  - Integrated i18next and react-i18next for localization
+  - Created translation files for English (en) and Ukrainian (uk) in `src/i18n/locales/`
+  - Added language selector in Settings > Personalization tab
+  - Language preference is persisted in user settings (`UserSettings.language`)
+  - Language changes apply immediately without app restart
+  - Translated main screens: Onboarding, Home, Settings, Navigation, Lock Screen
+  - Translated common UI elements: buttons, labels, error messages, empty states
+
+#### Technical Details
+- Language is stored in `UserSettings.language` field (`'en' | 'uk'`)
+- i18n is initialized in `App.tsx` before any other code
+- `SettingsProvider` automatically applies language changes when settings are loaded/updated
+- All translations use i18next's `useTranslation` hook
+- Translation keys follow hierarchical structure (e.g., `home.title`, `settings.language`)
+
+#### Files Changed
+- `src/i18n/` - New i18n configuration and translation files
+- `src/types/index.ts` - Added `SupportedLanguage` type and `language` field to `UserSettings`
+- `src/state/SettingsProvider.tsx` - Added language initialization and change handling
+- `src/screens/SettingsScreen.tsx` - Added language selector in Personalization tab
+- `src/screens/OnboardingScreen.tsx` - Translated all user-facing strings
+- `src/screens/HomeScreen.tsx` - Translated labels and messages
+- `src/navigation/RootNavigator.tsx` - Translated screen titles
+- `src/services/storage.ts` - Added validation for `language` field
+
 ### [2025-01-XX] - Analytics: Event Tracking for User Actions
 
 #### Added

@@ -2,6 +2,8 @@
  * Month utility functions for working with monthly data
  */
 
+import { getCurrentLanguage } from '../i18n';
+
 /**
  * Get month key in format YYYY-MM (e.g., "2024-11")
  */
@@ -39,18 +41,34 @@ export const getNextMonthKey = (monthKey: string): string => {
 
 /**
  * Format month key to readable string (e.g., "November 2024")
+ * Uses current i18n language for localization
  */
 export const formatMonthName = (monthKey: string): string => {
   const date = parseMonthKey(monthKey);
-  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const currentLang = getCurrentLanguage();
+  // Map language codes to locale codes
+  const localeMap: Record<string, string> = {
+    'en': 'en-US',
+    'uk': 'uk-UA',
+  };
+  const locale = localeMap[currentLang] || 'en-US';
+  return date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 };
 
 /**
  * Format month key to short string (e.g., "Nov 2024")
+ * Uses current i18n language for localization
  */
 export const formatMonthShort = (monthKey: string): string => {
   const date = parseMonthKey(monthKey);
-  return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  const currentLang = getCurrentLanguage();
+  // Map language codes to locale codes
+  const localeMap: Record<string, string> = {
+    'en': 'en-US',
+    'uk': 'uk-UA',
+  };
+  const locale = localeMap[currentLang] || 'en-US';
+  return date.toLocaleDateString(locale, { month: 'short', year: 'numeric' });
 };
 
 /**
@@ -78,4 +96,5 @@ export const isWithinLastYear = (monthKey: string): boolean => {
   const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1);
   return date >= oneYearAgo;
 };
+
 

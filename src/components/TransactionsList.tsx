@@ -9,6 +9,9 @@ import { formatCurrency } from '../utils/format';
 import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
 import { getTransactionAccessibilityLabel, BUTTON_HIT_SLOP } from '../utils/accessibility';
+import { useTranslation } from 'react-i18next';
+import { EmptyState } from './states';
+import { getLocalizedCategory } from '../utils/categoryLocalization';
 
 type TransactionsListProps = {
   transactions: Transaction[];
@@ -38,22 +41,24 @@ type GroupedTransaction = {
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme, onPress, onDelete }) => {
   const swipeableRef = useRef<Swipeable>(null);
   const { settings } = useSettings();
+  const { t } = useTranslation();
   const customCategories = settings.customCategories || [];
 
   const handleDelete = () => {
+    const typeLabel = t(`transactions.type.${transaction.type}`);
     Alert.alert(
-      'Delete Transaction',
-      `Are you sure you want to delete this ${transaction.type} transaction?`,
+      t('transactions.deleteTitle'),
+      t('transactions.deleteConfirm', { type: typeLabel }),
       [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
           onPress: () => {
             swipeableRef.current?.close();
           },
         },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             swipeableRef.current?.close();
@@ -72,13 +77,13 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
           onPress={handleDelete}
           activeOpacity={0.7}
           accessible={true}
-          accessibilityLabel={`Delete ${transaction.type} transaction`}
+          accessibilityLabel={t('transactions.deleteAccessibility', { type: t(`transactions.type.${transaction.type}`) })}
           accessibilityRole="button"
-          accessibilityHint="Double tap to delete this transaction"
+          accessibilityHint={t('transactions.deleteHint')}
           hitSlop={BUTTON_HIT_SLOP}
         >
           <Text style={[styles.deleteButtonText, { color: theme.colors.background }]}>
-            Delete
+            {t('common.delete')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -100,11 +105,11 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   const getTypeLabel = () => {
     switch (transaction.type) {
       case 'expense':
-        return 'Expense';
+        return t('transactions.type.expense');
       case 'income':
-        return 'Income';
+        return t('transactions.type.income');
       case 'saved':
-        return 'Saved';
+        return t('transactions.type.saved');
       default:
         return '';
     }
@@ -139,7 +144,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
                 },
               ]}
             >
-              {transaction.category || 'Uncategorized'}
+              {transaction.category ? getLocalizedCategory(transaction.category) : t('transactions.uncategorized')}
             </Text>
           </View>
           <Text
@@ -182,7 +187,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
 
   const accessibilityLabel = getTransactionAccessibilityLabel(
     transaction.type,
-    transaction.category || 'Uncategorized',
+    transaction.category || t('transactions.uncategorized'),
     transaction.amount,
     currency,
     transaction.createdAt
@@ -197,7 +202,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
           accessible={true}
           accessibilityLabel={accessibilityLabel}
           accessibilityRole="button"
-          accessibilityHint="Double tap to edit this transaction"
+          accessibilityHint={t('transactions.editHint')}
           hitSlop={BUTTON_HIT_SLOP}
         >
           {content}
@@ -264,6 +269,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
   style,
 }) => {
   const theme = useThemeStyles();
+  const { t } = useTranslation();
 
   // Debug: Log received transactions
   React.useEffect(() => {
@@ -276,6 +282,8 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
   // Group transactions by date and sort
   // Note: transactions are already sorted by date (newest first) and limited by parent
+  // Include i18n.language in dependencies to ensure dates are re-formatted when language changes
+  const { i18n } = useTranslation();
   const groupedTransactions = React.useMemo(() => {
     console.log('[TransactionsList] Grouping transactions:', {
       inputCount: transactions.length,
@@ -349,7 +357,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     });
 
     return result;
-  }, [transactions]);
+  }, [transactions, i18n.language]);
 
   // Flatten for FlatList
   const flatListData = React.useMemo(() => {
@@ -381,7 +389,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
         <View 
           style={styles.emptyContainer}
           accessible={true}
-          accessibilityLabel="No transactions"
+          accessibilityLabel={t('transactions.noTransactions')}
           accessibilityRole="text"
         >
           <Text
@@ -395,7 +403,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
             accessible={false}
             accessibilityElementsHidden={true}
           >
-            No transactions yet
+            {t('transactions.noTransactions')}
           </Text>
         </View>
       </Card>
@@ -448,9 +456,9 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
             },
           ]}
           accessible={true}
-          accessibilityLabel="Load more transactions"
+          accessibilityLabel={t('transactions.loadMoreAccessibility')}
           accessibilityRole="button"
-          accessibilityHint="Double tap to load more transactions"
+          accessibilityHint={t('transactions.loadMoreAccessibility')}
           hitSlop={BUTTON_HIT_SLOP}
         >
           <Text
@@ -462,7 +470,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
               },
             ]}
           >
-            Load More
+            {t('home.loadMore')}
           </Text>
         </TouchableOpacity>
       )}

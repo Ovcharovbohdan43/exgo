@@ -16,12 +16,15 @@ export interface CustomCategory {
   type: 'expense' | 'income'; // Type of transaction this category belongs to
 }
 
+export type SupportedLanguage = 'en' | 'uk';
+
 export interface UserSettings {
   currency: string;
   monthlyIncome: number;
   isOnboarded: boolean;
   firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
   themePreference?: ThemePreference; // Theme preference: 'light', 'dark', or 'system'
+  language?: SupportedLanguage; // Interface language: 'en' (English) or 'uk' (Ukrainian)
   customCategories?: CustomCategory[]; // User-defined categories for expenses and income
   // Security settings
   enableBiometric?: boolean; // Enable biometric authentication (Face ID, Touch ID, Fingerprint)

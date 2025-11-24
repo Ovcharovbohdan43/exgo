@@ -20,6 +20,7 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import { getMonthKey } from '../utils/month';
 import { trackOnboardingCompleted } from '../services/analytics';
+import { useTranslation } from 'react-i18next';
 
 const CURRENCIES = ['USD', 'GBP', 'EUR'] as const;
 type Currency = typeof CURRENCIES[number];
@@ -32,6 +33,7 @@ const OnboardingScreen: React.FC = () => {
   const theme = useThemeStyles();
   const navigation = useNavigation<OnboardingNav>();
   const { settings, updateSettings, setOnboarded } = useSettings();
+  const { t } = useTranslation();
   const [currency, setCurrency] = useState<Currency>(
     (settings.currency as Currency) || 'USD',
   );
@@ -85,12 +87,12 @@ const OnboardingScreen: React.FC = () => {
     
     // Validation
     if (!income.trim()) {
-      setError('Please enter your monthly income');
+      setError(t('onboarding.errorIncomeRequired'));
       return;
     }
     
     if (isNaN(parsedIncome) || parsedIncome <= 0) {
-      setError('Please enter a valid positive number');
+      setError(t('onboarding.errorIncomeInvalid'));
       return;
     }
 
@@ -121,7 +123,7 @@ const OnboardingScreen: React.FC = () => {
       setIsSaving(false);
     } catch (err) {
       console.error('[OnboardingScreen] Error saving settings:', err);
-      setError('Failed to save settings. Please try again.');
+      setError(t('settings.saveError'));
       setIsSaving(false);
     }
   };
@@ -153,7 +155,7 @@ const OnboardingScreen: React.FC = () => {
                 },
               ]}
             >
-              Welcome to ExGo
+              {t('onboarding.title')}
             </Text>
             <Text
               style={[
@@ -164,7 +166,7 @@ const OnboardingScreen: React.FC = () => {
                 },
               ]}
             >
-              Let's set up your budget
+              {t('onboarding.subtitle')}
             </Text>
           </View>
 
@@ -331,7 +333,7 @@ const OnboardingScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    Continue
+                    {t('onboarding.continue')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -373,7 +375,7 @@ const OnboardingScreen: React.FC = () => {
                 },
               ]}
             >
-              Select Currency
+              {t('onboarding.currencyLabel')}
             </Text>
             <View style={styles.modalList}>
               {CURRENCIES.map((code) => {

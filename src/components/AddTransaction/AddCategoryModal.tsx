@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useThemeStyles } from '../../theme/ThemeProvider';
 import { CustomCategory, TransactionType } from '../../types';
+import { useTranslation } from 'react-i18next';
 
 type AddCategoryModalProps = {
   visible: boolean;
@@ -41,6 +42,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   onSave,
 }) => {
   const theme = useThemeStyles();
+  const { t } = useTranslation();
   const [categoryName, setCategoryName] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState(categoryType === 'income' ? '💰' : '📦');
   
@@ -51,12 +53,12 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
     const trimmedName = categoryName.trim();
     
     if (!trimmedName) {
-      Alert.alert('Error', 'Please enter a category name');
+      Alert.alert(t('alerts.error'), t('alerts.categoryNameRequired'));
       return;
     }
 
     if (existingCategories.includes(trimmedName)) {
-      Alert.alert('Error', 'This category already exists');
+      Alert.alert(t('alerts.error'), t('alerts.categoryExists'));
       return;
     }
 
@@ -128,7 +130,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                   },
                 ]}
               >
-                Add Custom Category
+                {t('addTransaction.addCustomCategory')}
               </Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Text
@@ -158,12 +160,12 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                     },
                   ]}
                 >
-                  Category Name
+                  {t('addTransaction.category')}
                 </Text>
                 <TextInput
                   value={categoryName}
                   onChangeText={setCategoryName}
-                  placeholder="Enter category name"
+                  placeholder={t('addTransaction.categoryNamePlaceholder', { defaultValue: 'Enter category name' })}
                   placeholderTextColor={theme.colors.textMuted}
                   style={[
                     styles.input,
@@ -190,7 +192,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                     },
                   ]}
                 >
-                  Select Emoji
+                  {t('addTransaction.selectEmoji', { defaultValue: 'Select Emoji' })}
                 </Text>
                 <View
                   style={[
@@ -260,7 +262,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                     },
                   ]}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -282,7 +284,7 @@ export const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
                     },
                   ]}
                 >
-                  Save
+                  {t('common.save')}
                 </Text>
               </TouchableOpacity>
             </View>
