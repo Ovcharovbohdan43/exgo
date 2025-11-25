@@ -40,7 +40,9 @@ export type NotificationType =
   | 'negative_balance'
   | 'overspending_50_percent'
   | 'large_expense_spike'
-  | 'low_balance_20_percent';
+  | 'low_balance_20_percent'
+  | 'mini_budget_warning'
+  | 'mini_budget_over';
 
 export interface Notification {
   id: string;
@@ -50,4 +52,37 @@ export interface Notification {
   createdAt: string; // ISO string
   read: boolean;
   monthKey?: string; // Month key (YYYY-MM) this notification is related to
+}
+
+export type MiniBudgetStatus = 'active' | 'archived';
+
+export type MiniBudgetState = 'ok' | 'warning' | 'over';
+
+export interface MiniBudget {
+  id: string;
+  name: string;
+  month: string; // Month key (YYYY-MM)
+  currency: string;
+  limitAmount: number;
+  linkedCategoryIds: string[]; // Array of category names
+  status: MiniBudgetStatus;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  note?: string; // Optional note
+}
+
+export interface MiniBudgetMonthlyState {
+  budgetId: string;
+  month: string; // Month key (YYYY-MM)
+  spentAmount: number;
+  remaining: number; // limitAmount - spentAmount
+  pace: number; // spent / daysElapsed
+  forecast: number; // pace * daysInMonth
+  state: MiniBudgetState; // 'ok' | 'warning' | 'over'
+  daysElapsed: number;
+  daysInMonth: number;
+}
+
+export interface MiniBudgetWithState extends MiniBudget {
+  state: MiniBudgetMonthlyState;
 }

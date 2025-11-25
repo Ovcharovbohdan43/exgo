@@ -30,6 +30,8 @@ export const getLocalizedNotificationTitle = (notification: Notification): strin
         'budget_warning': 'notifications.budgetWarning.title', // Fallback if exists
         'overspending': 'notifications.overspendingAlert.title', // Fallback
         'achievement': 'notifications.achievement.title', // Fallback if exists
+        'mini_budget_warning': 'notifications.miniBudgetWarning.title',
+        'mini_budget_over': 'notifications.miniBudgetOver.title',
       };
       
       const mappedKey = typeMap[typeKey];
@@ -68,6 +70,8 @@ export const getLocalizedNotificationMessage = (notification: Notification): str
         'budget_warning': 'notifications.budgetWarning.message', // Fallback if exists
         'overspending': 'notifications.overspendingAlert.message', // Fallback
         'achievement': 'notifications.achievement.message', // Fallback if exists
+        'mini_budget_warning': 'notifications.miniBudgetWarning.message',
+        'mini_budget_over': 'notifications.miniBudgetOver.message',
       };
       
       const mappedKey = typeMap[typeKey];

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from '
 import { useFocusEffect } from '@react-navigation/native';
 import { useTransactions } from '../state/TransactionsProvider';
 import { useSettings } from '../state/SettingsProvider';
+import { useMiniBudgets } from '../state/MiniBudgetsProvider';
 import { useMonthlyTotals, useCategoryBreakdown } from '../state/selectors';
 import { formatCurrency } from '../utils/format';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
@@ -14,17 +15,27 @@ import { EmptyState } from '../components/states';
 import { formatMonthShort } from '../utils/month';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../utils/categoryLocalization';
+import { MiniBudgetCard } from '../components/MiniBudgetCard';
+import { AddMiniBudgetModal } from '../components/AddMiniBudgetModal';
+import { Alert } from 'react-native';
+import { MiniBudget, MiniBudgetWithState } from '../types';
 
 const DetailsScreen: React.FC = () => {
   const theme = useThemeStyles();
   const { t } = useTranslation();
   const { transactions, currentMonth } = useTransactions();
   const { settings } = useSettings();
+  const { getMiniBudgetsByMonth, deleteMiniBudget, updateMiniBudget } = useMiniBudgets();
   const breakdown = useCategoryBreakdown(transactions);
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
   
   // Animation key for DonutChart - changes on focus to trigger animation
   const [chartAnimationKey, setChartAnimationKey] = useState(0);
+  const [miniBudgetModalVisible, setMiniBudgetModalVisible] = useState(false);
+  const [budgetToEdit, setBudgetToEdit] = useState<MiniBudget | null>(null);
+  
+  // Get mini budgets for current month
+  const miniBudgets = getMiniBudgetsByMonth(currentMonth);
   
   // Trigger animation when screen comes into focus
   useFocusEffect(
@@ -40,6 +51,50 @@ const DetailsScreen: React.FC = () => {
     // TODO: Navigate to CategoryTransactions screen
     // For now, this is a placeholder
     console.log('Category pressed:', category);
+  };
+
+  const handleMiniBudgetEdit = (budget: MiniBudgetWithState) => {
+    // Extract MiniBudget part (without state) for editing
+    const budgetForEdit: MiniBudget = {
+      id: budget.id,
+      name: budget.name,
+      month: budget.month,
+      currency: budget.currency,
+      limitAmount: budget.limitAmount,
+      linkedCategoryIds: budget.linkedCategoryIds,
+      status: budget.status,
+      createdAt: budget.createdAt,
+      updatedAt: budget.updatedAt,
+      note: budget.note,
+    };
+    setBudgetToEdit(budgetForEdit);
+    setMiniBudgetModalVisible(true);
+  };
+
+  const handleMiniBudgetDelete = async (budget: MiniBudgetWithState) => {
+    Alert.alert(
+      t('miniBudgets.delete'),
+      t('miniBudgets.deleteConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMiniBudget(budget.id);
+            } catch (error) {
+              Alert.alert(t('alerts.error'), t('alerts.somethingWentWrong'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleCreateMiniBudget = () => {
+    setBudgetToEdit(null);
+    setMiniBudgetModalVisible(true);
   };
 
   return (
@@ -72,6 +127,38 @@ const DetailsScreen: React.FC = () => {
           centerSubLabelColor={theme.colors.textSecondary}
           animationTrigger={chartAnimationKey}
         />
+      </View>
+
+      {/* Mini Budgets Section */}
+      <View style={styles.miniBudgetsSection}>
+        <SectionHeader
+          title={t('miniBudgets.createTitle')}
+          variant="overline"
+          style={styles.sectionHeader}
+        />
+        {miniBudgets.length === 0 ? (
+          <EmptyState
+            icon="💰"
+            title={t('miniBudgets.noBudgets')}
+            message={t('miniBudgets.noBudgetsMessage')}
+            actionLabel={t('miniBudgets.createFirst')}
+            onAction={handleCreateMiniBudget}
+            accessibilityLabel={t('miniBudgets.noBudgets')}
+          />
+        ) : (
+          <View style={styles.miniBudgetsList}>
+            {miniBudgets.map((budget) => (
+              <MiniBudgetCard
+                key={budget.id}
+                budget={budget}
+                currency={settings.currency}
+                onEdit={() => handleMiniBudgetEdit(budget)}
+                onDelete={() => handleMiniBudgetDelete(budget)}
+                style={styles.miniBudgetCard}
+              />
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Categories Section */}
@@ -157,6 +244,17 @@ const DetailsScreen: React.FC = () => {
           </View>
         )}
       </View>
+
+      {/* Add/Edit Mini Budget Modal */}
+      <AddMiniBudgetModal
+        visible={miniBudgetModalVisible}
+        budgetToEdit={budgetToEdit}
+        currentMonth={currentMonth}
+        onClose={() => {
+          setMiniBudgetModalVisible(false);
+          setBudgetToEdit(null);
+        }}
+      />
     </ScrollView>
   );
 };
@@ -177,6 +275,16 @@ const styles = StyleSheet.create({
   },
   chartSection: {
     marginBottom: 32,
+  },
+  miniBudgetsSection: {
+    marginBottom: 32,
+  },
+  miniBudgetsList: {
+    gap: 12,
+    marginTop: 12,
+  },
+  miniBudgetCard: {
+    marginBottom: 0,
   },
   categoriesSection: {
     marginTop: 8,

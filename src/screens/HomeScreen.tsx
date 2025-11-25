@@ -9,6 +9,7 @@ import FloatingActionButton from '../components/FloatingActionButton';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionsList } from '../components/TransactionsList';
 import { AddTransactionModal } from '../components/AddTransaction';
+import { AddMiniBudgetModal } from '../components/AddMiniBudgetModal';
 import { EmptyState } from '../components/states';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
@@ -78,6 +79,7 @@ const HomeScreen: React.FC = () => {
   
   const [modalVisible, setModalVisible] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+  const [miniBudgetModalVisible, setMiniBudgetModalVisible] = useState(false);
   
   // Animation key for DonutChart - changes on focus to trigger animation
   const [chartAnimationKey, setChartAnimationKey] = useState(0);
@@ -130,6 +132,10 @@ const HomeScreen: React.FC = () => {
   const handleFABPress = () => {
     setTransactionToEdit(null);
     setModalVisible(true);
+  };
+
+  const handlePlanSelect = () => {
+    setMiniBudgetModalVisible(true);
   };
 
   const handleCloseModal = () => {
@@ -440,6 +446,14 @@ const HomeScreen: React.FC = () => {
         transactionToEdit={transactionToEdit}
         currentMonth={currentMonth}
         onClose={handleCloseModal}
+        onPlanSelect={handlePlanSelect}
+      />
+
+      {/* Add/Edit Mini Budget Modal */}
+      <AddMiniBudgetModal
+        visible={miniBudgetModalVisible}
+        currentMonth={currentMonth}
+        onClose={() => setMiniBudgetModalVisible(false)}
       />
     </Animated.View>
   );

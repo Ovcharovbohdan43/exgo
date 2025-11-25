@@ -12,7 +12,8 @@
     "next": "Next",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "optional": "Optional"
   },
   "onboarding": {
     "title": "Welcome to ExGo",
@@ -238,6 +239,14 @@
     "lowBalanceWarning": {
       "title": "Low Balance Warning",
       "message": "Your remaining balance is getting low. Stay cautious with your upcoming expenses."
+    },
+    "miniBudgetWarning": {
+      "title": "Mini Budget Warning",
+      "message": "You're spending too fast on \"{{budgetName}}\". At this pace, you'll exceed your limit of {{limit}} by the end of the month."
+    },
+    "miniBudgetOver": {
+      "title": "Mini Budget Exceeded",
+      "message": "You've exceeded your mini budget \"{{budgetName}}\" (limit: {{limit}}). You've spent {{spent}} which is {{over}} over the limit."
     }
   },
   "alerts": {
@@ -276,6 +285,37 @@
     "tryAgain": "Try Again",
     "categoryNamePlaceholder": "Enter category name",
     "selectEmoji": "Select Emoji"
+  },
+  "miniBudgets": {
+    "createTitle": "Create Mini Budget",
+    "editTitle": "Edit Mini Budget",
+    "name": "Name",
+    "namePlaceholder": "e.g., Fuel, Groceries",
+    "monthlyLimit": "Monthly Limit",
+    "linkedCategories": "Linked Categories",
+    "note": "Note",
+    "notePlaceholder": "Optional note...",
+    "nameRequired": "Please enter a name for the mini budget",
+    "limitRequired": "Please enter a valid monthly limit greater than 0",
+    "categoriesRequired": "Please select at least one category",
+    "created": "Mini budget created successfully!",
+    "updated": "Mini budget updated successfully!",
+    "deleted": "Mini budget deleted",
+    "deleteConfirm": "Are you sure you want to delete this mini budget?",
+    "spent": "Spent",
+    "remaining": "Remaining",
+    "of": "of",
+    "status": {
+      "ok": "On Track",
+      "warning": "Warning",
+      "over": "Over Budget"
+    },
+    "noBudgets": "No mini budgets yet",
+    "noBudgetsMessage": "Create a mini budget to track spending for specific categories",
+    "createFirst": "Create Mini Budget",
+    "viewDetails": "View Details",
+    "edit": "Edit",
+    "delete": "Delete"
   }
 }
 

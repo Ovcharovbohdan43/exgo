@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, UserSettings, Notification } from '../types';
+import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
 const CURRENT_MONTH_KEY = 'currentMonth'; // Store current selected month
 const NOTIFICATIONS_KEY = 'notifications';
+const MINI_BUDGETS_KEY = 'miniBudgets';
+const MINI_BUDGETS_STATE_KEY = 'miniBudgetMonthlyState';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -296,12 +298,136 @@ export const saveNotifications = async (notifications: Notification[]): Promise<
 };
 
 /**
+ * Validate MiniBudget array
+ */
+const validateMiniBudgets = (data: unknown): data is MiniBudget[] => {
+  if (!Array.isArray(data)) return false;
+  return data.every((budget) => {
+    return (
+      typeof budget === 'object' &&
+      budget !== null &&
+      typeof (budget as MiniBudget).id === 'string' &&
+      typeof (budget as MiniBudget).name === 'string' &&
+      typeof (budget as MiniBudget).month === 'string' &&
+      typeof (budget as MiniBudget).currency === 'string' &&
+      typeof (budget as MiniBudget).limitAmount === 'number' &&
+      Array.isArray((budget as MiniBudget).linkedCategoryIds) &&
+      typeof (budget as MiniBudget).status === 'string' &&
+      typeof (budget as MiniBudget).createdAt === 'string' &&
+      typeof (budget as MiniBudget).updatedAt === 'string'
+    );
+  });
+};
+
+/**
+ * Validate MiniBudgetMonthlyState record
+ */
+const validateMiniBudgetStates = (data: unknown): data is Record<string, MiniBudgetMonthlyState> => {
+  if (!data || typeof data !== 'object') return false;
+  const states = data as Record<string, unknown>;
+  return Object.values(states).every((state) => {
+    return (
+      typeof state === 'object' &&
+      state !== null &&
+      typeof (state as MiniBudgetMonthlyState).budgetId === 'string' &&
+      typeof (state as MiniBudgetMonthlyState).month === 'string' &&
+      typeof (state as MiniBudgetMonthlyState).spentAmount === 'number' &&
+      typeof (state as MiniBudgetMonthlyState).remaining === 'number' &&
+      typeof (state as MiniBudgetMonthlyState).pace === 'number' &&
+      typeof (state as MiniBudgetMonthlyState).forecast === 'number' &&
+      typeof (state as MiniBudgetMonthlyState).state === 'string' &&
+      typeof (state as MiniBudgetMonthlyState).daysElapsed === 'number' &&
+      typeof (state as MiniBudgetMonthlyState).daysInMonth === 'number'
+    );
+  });
+};
+
+/**
+ * Load mini budgets from AsyncStorage
+ */
+export const loadMiniBudgets = async (): Promise<MiniBudget[]> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(MINI_BUDGETS_KEY));
+    const parsed = safeParse<MiniBudget[]>(raw);
+    
+    if (parsed && validateMiniBudgets(parsed)) {
+      return parsed;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[Storage] Failed to load mini budgets:', error);
+    return [];
+  }
+};
+
+/**
+ * Save mini budgets to AsyncStorage
+ */
+export const saveMiniBudgets = async (budgets: MiniBudget[]): Promise<void> => {
+  try {
+    if (!validateMiniBudgets(budgets)) {
+      throw new Error('Invalid mini budgets structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(MINI_BUDGETS_KEY, JSON.stringify(budgets)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save mini budgets:', error);
+    throw error;
+  }
+};
+
+/**
+ * Load mini budget monthly states from AsyncStorage
+ */
+export const loadMiniBudgetStates = async (): Promise<Record<string, MiniBudgetMonthlyState>> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(MINI_BUDGETS_STATE_KEY));
+    const parsed = safeParse<Record<string, MiniBudgetMonthlyState>>(raw);
+    
+    if (parsed && validateMiniBudgetStates(parsed)) {
+      return parsed;
+    }
+    
+    return {};
+  } catch (error) {
+    console.error('[Storage] Failed to load mini budget states:', error);
+    return {};
+  }
+};
+
+/**
+ * Save mini budget monthly states to AsyncStorage
+ */
+export const saveMiniBudgetStates = async (states: Record<string, MiniBudgetMonthlyState>): Promise<void> => {
+  try {
+    if (!validateMiniBudgetStates(states)) {
+      throw new Error('Invalid mini budget states structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(MINI_BUDGETS_STATE_KEY, JSON.stringify(states)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save mini budget states:', error);
+    throw error;
+  }
+};
+
+/**
  * Reset all storage (clear all keys)
  */
 export const resetStorage = async (): Promise<void> => {
   try {
     await withRetry(() =>
-      AsyncStorage.multiRemove([SETTINGS_KEY, TRANSACTIONS_KEY, NOTIFICATIONS_KEY, CURRENT_MONTH_KEY]),
+      AsyncStorage.multiRemove([
+        SETTINGS_KEY,
+        TRANSACTIONS_KEY,
+        NOTIFICATIONS_KEY,
+        CURRENT_MONTH_KEY,
+        MINI_BUDGETS_KEY,
+        MINI_BUDGETS_STATE_KEY,
+      ]),
     );
   } catch (error) {
     console.error('[Storage] Failed to reset storage:', error);

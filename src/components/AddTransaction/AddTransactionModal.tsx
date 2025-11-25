@@ -17,6 +17,7 @@ type AddTransactionModalProps = {
   transactionToEdit?: Transaction | null; // Transaction to edit (if provided, modal works in edit mode)
   currentMonth?: string; // Current month key (YYYY-MM) - if provided, new transactions will use this month's date
   onClose: () => void;
+  onPlanSelect?: () => void; // Callback when user selects "Plan" option
 };
 
 type Step = 'type' | 'amount' | 'category' | 'confirm';
@@ -31,6 +32,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   transactionToEdit,
   currentMonth,
   onClose,
+  onPlanSelect,
 }) => {
   const theme = useThemeStyles();
   const { t } = useTranslation();
@@ -240,12 +242,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               textAlign: 'center',
             }}
           >
-            Select Transaction Type
+{t('addTransaction.selectType')}
           </Text>
           {[
-            { type: 'expense' as TransactionType, label: 'Expense', emoji: '💸', color: theme.colors.danger },
-            { type: 'income' as TransactionType, label: 'Income', emoji: '💰', color: theme.colors.positive },
-            { type: 'saved' as TransactionType, label: 'Saved', emoji: '💾', color: theme.colors.accent },
+            { type: 'expense' as TransactionType, label: t('transactions.type.expense'), emoji: '💸', color: theme.colors.danger },
+            { type: 'income' as TransactionType, label: t('transactions.type.income'), emoji: '💰', color: theme.colors.positive },
+            { type: 'saved' as TransactionType, label: t('transactions.type.saved'), emoji: '💾', color: theme.colors.accent },
           ].map((item) => (
             <TouchableOpacity
               key={item.type}
@@ -278,6 +280,42 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               </View>
             </TouchableOpacity>
           ))}
+          
+          {/* Plan Option */}
+          {onPlanSelect && (
+            <TouchableOpacity
+              onPress={() => {
+                onPlanSelect();
+                onClose();
+              }}
+              activeOpacity={0.7}
+              style={styles.typeButton}
+            >
+              <View
+                style={[
+                  styles.typeCard,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.accent,
+                  },
+                ]}
+              >
+                <Text style={styles.typeEmoji}>📋</Text>
+                <Text
+                  style={[
+                    styles.typeLabel,
+                    {
+                      color: theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  {t('miniBudgets.createTitle')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }

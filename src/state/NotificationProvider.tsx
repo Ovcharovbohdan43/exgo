@@ -4,6 +4,7 @@ import { loadNotifications, saveNotifications } from '../services/storage';
 import { Notification, NotificationType } from '../types';
 import { useSettings } from './SettingsProvider';
 import { useTransactions } from './TransactionsProvider';
+import { useMiniBudgets } from './MiniBudgetsProvider';
 import { getMonthKey, getPreviousMonthKey } from '../utils/month';
 import { calculateTotals } from '../modules/calculations';
 import i18n from '../i18n';
@@ -25,11 +26,14 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { settings } = useSettings();
   const { transactions, currentMonth, transactionsByMonth } = useTransactions();
+  const { getMiniBudgetsByMonth, hydrated: miniBudgetsHydrated, miniBudgetStates } = useMiniBudgets();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   // Track last checked transaction IDs to detect new large expenses
   const lastCheckedTransactionIdsRef = useRef<Set<string>>(new Set());
+  // Track last checked mini budget IDs to avoid duplicate notifications
+  const lastCheckedMiniBudgetIdsRef = useRef<Set<string>>(new Set());
 
   // Calculate unread count
   const unreadCount = useMemo(
@@ -341,27 +345,153 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
 
+      // Trigger 6: Mini Budget Warnings and Over Budget Alerts
+      // Check mini budgets for warning and over states
+      if (miniBudgetsHydrated) {
+        const miniBudgets = getMiniBudgetsByMonth(currentMonthKey);
+        let updatedNotifications = prevNotifications;
+
+        for (const budget of miniBudgets) {
+          const notificationKey = `mini_budget_${budget.id}_${currentMonthKey}`;
+          
+          // Check if notification already exists for this budget
+          const existingNotification = prevNotifications.find(
+            (n) => 
+              (n.type === 'mini_budget_warning' || n.type === 'mini_budget_over') &&
+              n.monthKey === currentMonthKey &&
+              n.message.includes(budget.name)
+          );
+
+          // If notification exists and state hasn't changed, skip
+          if (existingNotification) {
+            // Check if state changed from warning to over (or vice versa)
+            const currentState = budget.state.state;
+            const existingState = existingNotification.type === 'mini_budget_over' ? 'over' : 'warning';
+            
+            // Only skip if state is the same
+            if (currentState === existingState) {
+              if (!lastCheckedMiniBudgetIdsRef.current.has(notificationKey)) {
+                lastCheckedMiniBudgetIdsRef.current.add(notificationKey);
+              }
+              continue;
+            }
+            
+            // State changed, remove old notification and create new one
+            const filteredNotifications = prevNotifications.filter((n) => n.id !== existingNotification.id);
+            prevNotifications = filteredNotifications;
+            lastCheckedMiniBudgetIdsRef.current.delete(notificationKey);
+          } else if (lastCheckedMiniBudgetIdsRef.current.has(notificationKey)) {
+            // Already checked but no notification exists - might be state changed back to ok
+            // Only skip if state is ok
+            if (budget.state.state === 'ok') {
+              continue;
+            }
+            // State changed from ok to warning/over, allow notification
+            lastCheckedMiniBudgetIdsRef.current.delete(notificationKey);
+          }
+
+          // Check for over budget state
+          if (budget.state.state === 'over') {
+            const overAmount = budget.state.spentAmount - budget.limitAmount;
+            const newNotification: Notification = {
+              id: uuidv4(),
+              type: 'mini_budget_over',
+              title: i18n.t('notifications.miniBudgetOver.title'),
+              message: i18n.t('notifications.miniBudgetOver.message', {
+                budgetName: budget.name,
+                limit: `${settings.currency} ${budget.limitAmount.toFixed(2)}`,
+                spent: `${settings.currency} ${budget.state.spentAmount.toFixed(2)}`,
+                over: `${settings.currency} ${overAmount.toFixed(2)}`,
+              }),
+              createdAt: now.toISOString(),
+              read: false,
+              monthKey: currentMonthKey,
+            };
+
+            updatedNotifications = [newNotification, ...updatedNotifications];
+            lastCheckedMiniBudgetIdsRef.current.add(notificationKey);
+            persist(updatedNotifications).catch(console.error);
+
+            console.log('[NotificationProvider] Created mini budget over notification:', {
+              notification: newNotification,
+              budgetId: budget.id,
+              budgetName: budget.name,
+              spent: budget.state.spentAmount,
+              limit: budget.limitAmount,
+              over: overAmount,
+            });
+
+            return updatedNotifications;
+          }
+
+          // Check for warning state (spending too fast)
+          if (budget.state.state === 'warning') {
+            const newNotification: Notification = {
+              id: uuidv4(),
+              type: 'mini_budget_warning',
+              title: i18n.t('notifications.miniBudgetWarning.title'),
+              message: i18n.t('notifications.miniBudgetWarning.message', {
+                budgetName: budget.name,
+                limit: `${settings.currency} ${budget.limitAmount.toFixed(2)}`,
+              }),
+              createdAt: now.toISOString(),
+              read: false,
+              monthKey: currentMonthKey,
+            };
+
+            updatedNotifications = [newNotification, ...updatedNotifications];
+            lastCheckedMiniBudgetIdsRef.current.add(notificationKey);
+            persist(updatedNotifications).catch(console.error);
+
+            console.log('[NotificationProvider] Created mini budget warning notification:', {
+              notification: newNotification,
+              budgetId: budget.id,
+              budgetName: budget.name,
+              spent: budget.state.spentAmount,
+              limit: budget.limitAmount,
+              forecast: budget.state.forecast,
+            });
+
+            return updatedNotifications;
+          }
+        }
+      }
+
       // No new notifications, return previous state
       return prevNotifications;
     });
-  }, [settings.monthlyIncome, transactionsByMonth, persist]);
+  }, [settings.monthlyIncome, transactionsByMonth, persist, miniBudgetsHydrated, getMiniBudgetsByMonth]);
 
-  // Clear checked transaction IDs when month changes
+  // Clear checked transaction IDs and mini budget IDs when month changes
   // This ensures that transactions from previous months don't interfere with new month checks
   useEffect(() => {
     console.log('[NotificationProvider] Month changed, clearing checked transaction IDs:', {
       newMonth: currentMonth,
       previousCheckedCount: lastCheckedTransactionIdsRef.current.size,
+      previousMiniBudgetCheckedCount: lastCheckedMiniBudgetIdsRef.current.size,
     });
     lastCheckedTransactionIdsRef.current.clear();
+    lastCheckedMiniBudgetIdsRef.current.clear();
   }, [currentMonth]);
 
-  // Check triggers when transactions or month changes
+  // Track mini budget states changes to trigger notifications
+  const miniBudgetStatesKey = useMemo(() => {
+    if (!miniBudgetStates || Object.keys(miniBudgetStates).length === 0) {
+      return '';
+    }
+    // Create a key from all budget states to detect changes
+    return Object.entries(miniBudgetStates)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, state]) => `${key}:${state.state}:${state.spentAmount.toFixed(2)}`)
+      .join('|');
+  }, [miniBudgetStates]);
+
+  // Check triggers when transactions, month, or mini budget states change
   useEffect(() => {
     if (hydrated && settings.monthlyIncome > 0) {
       checkTriggers();
     }
-  }, [hydrated, currentMonth, transactionsByMonth, settings.monthlyIncome, checkTriggers]);
+  }, [hydrated, currentMonth, transactionsByMonth, settings.monthlyIncome, miniBudgetStatesKey, checkTriggers]);
 
   const value: NotificationContextValue = {
     notifications,

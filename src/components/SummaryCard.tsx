@@ -46,6 +46,7 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
               color: theme.colors.textSecondary,
               fontSize: theme.typography.fontSize.sm,
               fontWeight: theme.typography.fontWeight.medium,
+              textAlign: 'center',
             },
           ]}
         >
@@ -58,6 +59,7 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
               color: getVariantColor(),
               fontSize: theme.typography.fontSize.lg,
               fontWeight: theme.typography.fontWeight.semibold,
+              textAlign: 'center',
             },
           ]}
         >
@@ -70,13 +72,15 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
 
 const styles = StyleSheet.create({
   content: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   label: {
     marginBottom: 4,
+    textAlign: 'center',
   },
   value: {
     marginTop: 2,
+    textAlign: 'center',
   },
 });
 
