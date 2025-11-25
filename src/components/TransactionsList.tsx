@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ViewStyle, TouchableOpacity, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Card } from './layout';
@@ -42,7 +42,7 @@ type GroupedTransaction = {
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme, onPress, onDelete }) => {
   const swipeableRef = useRef<Swipeable>(null);
   const { settings } = useSettings();
-  const { getCreditProductById } = useCreditProducts();
+  const { getCreditProductById, creditProducts } = useCreditProducts();
   const { t } = useTranslation();
   const customCategories = settings.customCategories || [];
   
@@ -50,6 +50,32 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   const creditProduct = transaction.type === 'credit' && transaction.creditProductId 
     ? getCreditProductById(transaction.creditProductId) 
     : null;
+  
+  // Get credit card used for payment if this is an expense transaction
+  // Check for both null and undefined, and ensure the ID is a valid string
+  const paidByCreditCard = transaction.type === 'expense' && 
+    transaction.paidByCreditProductId && 
+    typeof transaction.paidByCreditProductId === 'string' &&
+    transaction.paidByCreditProductId.trim() !== ''
+    ? getCreditProductById(transaction.paidByCreditProductId) 
+    : null;
+  
+  // Debug: Log payment method info
+  useEffect(() => {
+    if (transaction.type === 'expense') {
+      console.log('[TransactionItem] Expense transaction details:', {
+        transactionId: transaction.id,
+        paidByCreditProductId: transaction.paidByCreditProductId,
+        paidByCreditProductIdType: typeof transaction.paidByCreditProductId,
+        paidByCreditProductIdTruthy: !!transaction.paidByCreditProductId,
+        creditCardFound: !!paidByCreditCard,
+        creditCardName: paidByCreditCard?.name,
+        category: transaction.category,
+        allCreditProducts: creditProducts.length,
+        willShowPaidBy: !!paidByCreditCard,
+      });
+    }
+  }, [transaction.id, transaction.type, transaction.paidByCreditProductId, paidByCreditCard, transaction.category, creditProducts]);
   
   // Check if this is the first transaction for this credit product (creation transaction)
   // First transaction is when transaction amount equals principal (initial debt amount)
@@ -152,20 +178,35 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
           </Text>
           <View style={styles.categoryRow}>
             <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category, customCategories)}</Text>
-            <Text
-              style={[
-                styles.category,
-                {
-                  color: theme.colors.textPrimary,
-                  fontSize: theme.typography.fontSize.md,
-                  fontWeight: theme.typography.fontWeight.semibold,
-                },
-              ]}
-            >
-              {transaction.type === 'credit' && creditProduct
-                ? creditProduct.name
-                : (transaction.category ? getLocalizedCategory(transaction.category) : t('transactions.uncategorized'))}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.category,
+                  {
+                    color: theme.colors.textPrimary,
+                    fontSize: theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.semibold,
+                  },
+                ]}
+              >
+                {transaction.type === 'credit' && creditProduct
+                  ? creditProduct.name
+                  : (transaction.category ? getLocalizedCategory(transaction.category) : t('transactions.uncategorized'))}
+              </Text>
+              {paidByCreditCard && (
+                <Text
+                  style={[
+                    {
+                      color: theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.xs,
+                      marginTop: 2,
+                    },
+                  ]}
+                >
+                  {t('transactions.paidBy', { defaultValue: 'Paid by' })} {paidByCreditCard.name}
+                </Text>
+              )}
+            </View>
           </View>
           <Text
             style={[

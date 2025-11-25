@@ -26,6 +26,7 @@ type TransactionsContextValue = {
     type: TransactionType;
     category?: string;
     creditProductId?: string;
+    paidByCreditProductId?: string;
     createdAt?: string;
   }) => Promise<void>;
   updateTransaction: (id: string, input: {
@@ -33,6 +34,7 @@ type TransactionsContextValue = {
     type: TransactionType;
     category?: string;
     creditProductId?: string;
+    paidByCreditProductId?: string;
     createdAt?: string;
   }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
@@ -359,13 +361,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const addTransaction: TransactionsContextValue['addTransaction'] = useCallback(
-    async ({ amount, type, category, creditProductId, createdAt }) => {
+    async ({ amount, type, category, creditProductId, paidByCreditProductId, createdAt }) => {
       const tx: Transaction = {
         id: uuidv4(),
         amount,
         type,
         category,
         creditProductId,
+        paidByCreditProductId,
         createdAt: createdAt ?? new Date().toISOString(),
       };
       
@@ -454,7 +457,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const updateTransaction: TransactionsContextValue['updateTransaction'] = useCallback(
-    async (id: string, { amount, type, category, creditProductId, createdAt }) => {
+    async (id: string, { amount, type, category, creditProductId, paidByCreditProductId, createdAt }) => {
       // Use functional update to ensure we have the latest state
       let next: Record<string, Transaction[]>;
       let foundMonthKey: string | null = null;
@@ -482,6 +485,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 type,
                 category,
                 creditProductId,
+                paidByCreditProductId,
                 createdAt: createdAt ?? tx.createdAt,
               }
             : tx

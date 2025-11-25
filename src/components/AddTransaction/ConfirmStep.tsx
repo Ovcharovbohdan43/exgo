@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ViewStyle, TouchableOpacity, ScrollView } from 'react-native';
 import { Card } from '../layout';
 import { useThemeStyles } from '../../theme/ThemeProvider';
 import { useSettings } from '../../state/SettingsProvider';
@@ -16,6 +16,8 @@ type ConfirmStepProps = {
   amount: number;
   category: string | null;
   creditProductId?: string | null;
+  paidByCreditProductId?: string | null;
+  onPaidByCreditProductChange?: (productId: string | null) => void;
   currency: string;
   createdAt: string;
   style?: ViewStyle;
@@ -30,6 +32,8 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   amount,
   category,
   creditProductId,
+  paidByCreditProductId,
+  onPaidByCreditProductChange,
   currency,
   createdAt,
   style,
@@ -37,10 +41,15 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   const theme = useThemeStyles();
   const { settings } = useSettings();
   const { t } = useTranslation();
-  const { getCreditProductById } = useCreditProducts();
+  const { getCreditProductById, getActiveCreditProducts } = useCreditProducts();
   const customCategories = settings.customCategories || [];
   
   const creditProduct = creditProductId ? getCreditProductById(creditProductId) : null;
+  const paidByCreditProduct = paidByCreditProductId ? getCreditProductById(paidByCreditProductId) : null;
+  
+  // Get only credit cards (not loans or installments) for payment selection
+  const creditCards = getActiveCreditProducts().filter((product) => product.creditType === 'credit_card');
+  const [showCreditCardSelector, setShowCreditCardSelector] = useState(false);
 
   // Debug: Log received props
   React.useEffect(() => {
@@ -49,11 +58,14 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
       amount,
       category,
       creditProductId,
+      paidByCreditProductId,
+      paidByCreditProduct: paidByCreditProduct?.name,
       currency,
       hasCreditProduct: !!creditProduct,
       creditProductName: creditProduct?.name,
+      creditCardsCount: creditCards.length,
     });
-  }, [type, amount, category, creditProductId, currency, creditProduct]);
+  }, [type, amount, category, creditProductId, paidByCreditProductId, paidByCreditProduct, currency, creditProduct, creditCards.length]);
 
   const getTypeLabel = () => {
     if (!type) return 'Unknown';
@@ -237,6 +249,143 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
           </>
         )}
 
+        {/* Payment method selector for expense transactions */}
+        {type === 'expense' && creditCards.length > 0 && (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.row}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.sm,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  },
+                ]}
+              >
+                {t('addTransaction.paymentMethod', { defaultValue: 'Payment Method' })}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowCreditCardSelector(!showCreditCardSelector)}
+                activeOpacity={0.7}
+                style={styles.paymentMethodSelector}
+              >
+                <Text
+                  style={[
+                    styles.value,
+                    {
+                      color: paidByCreditProduct 
+                        ? theme.colors.textPrimary 
+                        : theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.medium,
+                    },
+                  ]}
+                >
+                  {paidByCreditProduct 
+                    ? paidByCreditProduct.name 
+                    : t('addTransaction.cash', { defaultValue: 'Cash / Debit Card' })}
+                </Text>
+                <Text style={{ color: theme.colors.textMuted, marginLeft: 8 }}>▼</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {showCreditCardSelector && (
+              <View style={styles.creditCardSelector}>
+                <ScrollView style={styles.creditCardList} nestedScrollEnabled>
+                  <TouchableOpacity
+                    onPress={() => {
+                      onPaidByCreditProductChange?.(null);
+                      setShowCreditCardSelector(false);
+                    }}
+                    style={[
+                      styles.creditCardOption,
+                      {
+                        backgroundColor: !paidByCreditProductId 
+                          ? theme.colors.accent + '15' 
+                          : theme.colors.surface,
+                        borderColor: !paidByCreditProductId 
+                          ? theme.colors.accent 
+                          : theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.creditCardOptionText,
+                        {
+                          color: !paidByCreditProductId 
+                            ? theme.colors.accent 
+                            : theme.colors.textPrimary,
+                          fontWeight: !paidByCreditProductId 
+                            ? theme.typography.fontWeight.semibold 
+                            : theme.typography.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {t('addTransaction.cash', { defaultValue: 'Cash / Debit Card' })}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {creditCards.map((card) => (
+                    <TouchableOpacity
+                      key={card.id}
+                      onPress={() => {
+                        console.log('[ConfirmStep] Credit card selected:', {
+                          cardId: card.id,
+                          cardName: card.name,
+                          hasCallback: !!onPaidByCreditProductChange,
+                        });
+                        onPaidByCreditProductChange?.(card.id);
+                        setShowCreditCardSelector(false);
+                      }}
+                      style={[
+                        styles.creditCardOption,
+                        {
+                          backgroundColor: paidByCreditProductId === card.id 
+                            ? theme.colors.accent + '15' 
+                            : theme.colors.surface,
+                          borderColor: paidByCreditProductId === card.id 
+                            ? theme.colors.accent 
+                            : theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.creditCardOptionText,
+                          {
+                            color: paidByCreditProductId === card.id 
+                              ? theme.colors.accent 
+                              : theme.colors.textPrimary,
+                            fontWeight: paidByCreditProductId === card.id 
+                              ? theme.typography.fontWeight.semibold 
+                              : theme.typography.fontWeight.medium,
+                          },
+                        ]}
+                      >
+                        {card.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.creditCardBalance,
+                          {
+                            color: theme.colors.textSecondary,
+                            fontSize: theme.typography.fontSize.xs,
+                          },
+                        ]}
+                      >
+                        {formatCurrency(card.remainingBalance, currency)} balance
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </>
+        )}
+
         <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
 
         <View style={styles.row}>
@@ -301,6 +450,29 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: 4,
+  },
+  paymentMethodSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  creditCardSelector: {
+    marginTop: 8,
+    maxHeight: 200,
+  },
+  creditCardList: {
+    maxHeight: 200,
+  },
+  creditCardOption: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  creditCardOptionText: {
+    fontSize: 14,
+  },
+  creditCardBalance: {
+    marginTop: 4,
   },
 });
 

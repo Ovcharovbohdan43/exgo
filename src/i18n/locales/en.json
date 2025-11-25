@@ -70,7 +70,8 @@
     "type": {
       "expense": "Expense",
       "income": "Income",
-      "saved": "Saved"
+      "saved": "Saved",
+      "credit": "Credit"
     },
     "noTransactions": "No transactions for this month",
     "noTransactionsMessage": "Add new transactions to see them here.",
@@ -82,7 +83,8 @@
     "deleteHint": "Double tap to delete this transaction",
     "editHint": "Double tap to edit this transaction",
     "uncategorized": "Uncategorized",
-    "loadMoreAccessibility": "Load more transactions"
+    "loadMoreAccessibility": "Load more transactions",
+    "paidBy": "Paid by"
   },
   "addTransaction": {
     "title": "Add Transaction",

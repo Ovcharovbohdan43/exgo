@@ -73,14 +73,23 @@ const validateSettings = (data: unknown): data is UserSettings => {
 const validateTransactions = (data: unknown): data is Transaction[] => {
   if (!Array.isArray(data)) return false;
   return data.every((tx) => {
-    return (
-      typeof tx === 'object' &&
-      tx !== null &&
-      typeof (tx as Transaction).id === 'string' &&
-      typeof (tx as Transaction).amount === 'number' &&
-      ['expense', 'income', 'saved', 'credit'].includes((tx as Transaction).type) &&
-      typeof (tx as Transaction).createdAt === 'string'
-    );
+    if (typeof tx !== 'object' || tx === null) return false;
+    
+    const transaction = tx as Transaction;
+    
+    // Required fields
+    if (typeof transaction.id !== 'string') return false;
+    if (typeof transaction.amount !== 'number' || isNaN(transaction.amount)) return false;
+    if (typeof transaction.type !== 'string') return false;
+    if (!['expense', 'income', 'saved', 'credit'].includes(transaction.type)) return false;
+    if (typeof transaction.createdAt !== 'string') return false;
+    
+    // Optional fields - allow undefined, null, or string
+    if (transaction.category !== undefined && transaction.category !== null && typeof transaction.category !== 'string') return false;
+    if (transaction.creditProductId !== undefined && transaction.creditProductId !== null && typeof transaction.creditProductId !== 'string') return false;
+    if (transaction.paidByCreditProductId !== undefined && transaction.paidByCreditProductId !== null && typeof transaction.paidByCreditProductId !== 'string') return false;
+    
+    return true;
   });
 };
 

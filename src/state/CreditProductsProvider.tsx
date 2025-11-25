@@ -40,6 +40,7 @@ type CreditProductsContextValue = {
   }) => Promise<void>;
   deleteCreditProduct: (id: string) => Promise<void>;
   applyPayment: (productId: string, amount: number) => Promise<void>;
+  addCharge: (productId: string, amount: number) => Promise<void>; // Add charge to credit card (increase balance)
   retryHydration: () => Promise<void>;
 };
 
@@ -327,8 +328,10 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
         updatedProduct.remainingBalance = Math.max(0, product.remainingBalance - amount);
       }
 
-      // Update total paid
-      updatedProduct.totalPaid = product.totalPaid + amount;
+      // Calculate total paid based on principal and remaining balance
+      // totalPaid = principal - remainingBalance (how much of the principal has been paid off)
+      // This automatically decreases when remainingBalance increases (when user uses card)
+      updatedProduct.totalPaid = Math.max(0, updatedProduct.principal - updatedProduct.remainingBalance);
 
       // Update status
       if (updatedProduct.remainingBalance === 0 && updatedProduct.accruedInterest === 0) {
@@ -345,6 +348,50 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
         productId,
         amount,
         remainingBalance: updatedProduct.remainingBalance,
+      });
+    },
+    [creditProducts, persistProducts],
+  );
+
+  // Add charge to credit card (increase balance when user spends money using credit card)
+  const addCharge = useCallback(
+    async (productId: string, amount: number): Promise<void> => {
+      const product = creditProducts.find((p) => p.id === productId);
+      if (!product) {
+        throw new Error(`Credit product ${productId} not found`);
+      }
+
+      if (product.creditType !== 'credit_card') {
+        throw new Error('addCharge can only be used for credit cards');
+      }
+
+      if (amount <= 0) {
+        throw new Error('Charge amount must be greater than 0');
+      }
+
+      // Increase remaining balance (user spent money, increasing debt)
+      const updatedProduct: CreditProduct = {
+        ...product,
+        remainingBalance: product.remainingBalance + amount,
+        // Recalculate totalPaid: it decreases when remainingBalance increases
+        // totalPaid = principal - remainingBalance
+        totalPaid: Math.max(0, product.principal - (product.remainingBalance + amount)),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Update status if needed
+      if (updatedProduct.remainingBalance > 0 && updatedProduct.status === 'paid_off') {
+        updatedProduct.status = 'active';
+      }
+
+      const updated = creditProducts.map((p) => (p.id === productId ? updatedProduct : p));
+      setCreditProducts(updated);
+      await persistProducts(updated);
+
+      addBreadcrumb('Charge added to credit card', 'user', 'info', {
+        productId,
+        amount,
+        newBalance: updatedProduct.remainingBalance,
       });
     },
     [creditProducts, persistProducts],
@@ -367,6 +414,7 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
       updateCreditProduct,
       deleteCreditProduct,
       applyPayment,
+      addCharge,
       retryHydration,
     }),
     [
@@ -380,6 +428,7 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
       updateCreditProduct,
       deleteCreditProduct,
       applyPayment,
+      addCharge,
       retryHydration,
     ],
   );

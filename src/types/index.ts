@@ -5,7 +5,8 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   category?: string;
-  creditProductId?: string; // Link to credit product for credit transactions
+  creditProductId?: string; // Link to credit product for credit transactions (payments)
+  paidByCreditProductId?: string; // Link to credit card used for payment (for expense transactions)
   createdAt: string; // ISO string
 }
 

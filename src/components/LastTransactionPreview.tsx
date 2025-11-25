@@ -37,6 +37,11 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
     ? getCreditProductById(transaction.creditProductId) 
     : null;
   
+  // Get credit card used for payment if this is an expense transaction
+  const paidByCreditCard = transaction.type === 'expense' && transaction.paidByCreditProductId 
+    ? getCreditProductById(transaction.paidByCreditProductId) 
+    : null;
+  
   // Check if this is the first transaction for this credit product (creation transaction)
   // First transaction is when transaction amount equals principal (initial debt amount)
   // This indicates it's the transaction that created the credit product
@@ -111,20 +116,35 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
         </Text>
         <View style={styles.categoryRow}>
           <Text style={styles.categoryEmoji}>{getCategoryEmoji(transaction.category, customCategories)}</Text>
-          <Text
-            style={[
-              styles.category,
-              {
-                color: theme.colors.textPrimary,
-                fontSize: theme.typography.fontSize.md,
-                fontWeight: theme.typography.fontWeight.semibold,
-              },
-            ]}
-          >
-            {transaction.type === 'credit' && creditProduct
-              ? creditProduct.name
-              : (transaction.category || 'Uncategorized')}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                styles.category,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: theme.typography.fontSize.md,
+                  fontWeight: theme.typography.fontWeight.semibold,
+                },
+              ]}
+            >
+              {transaction.type === 'credit' && creditProduct
+                ? creditProduct.name
+                : (transaction.category || 'Uncategorized')}
+            </Text>
+            {paidByCreditCard && (
+              <Text
+                style={[
+                  {
+                    color: theme.colors.textMuted,
+                    fontSize: theme.typography.fontSize.xs,
+                    marginTop: 2,
+                  },
+                ]}
+              >
+                Paid by {paidByCreditCard.name}
+              </Text>
+            )}
+          </View>
         </View>
         <Text
           style={[

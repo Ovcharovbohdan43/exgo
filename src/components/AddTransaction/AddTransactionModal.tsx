@@ -39,7 +39,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const { t } = useTranslation();
   const { settings } = useSettings();
   const { addTransaction, updateTransaction } = useTransactions();
-  const { applyPayment } = useCreditProducts();
+  const { applyPayment, addCharge } = useCreditProducts();
   const isEditMode = !!transactionToEdit;
 
   // Debug: Log currency when modal opens
@@ -54,6 +54,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [amount, setAmount] = useState<string>('');
   const [category, setCategory] = useState<string | null>(null);
   const [creditProductId, setCreditProductId] = useState<string | null>(null);
+  const [paidByCreditProductId, setPaidByCreditProductId] = useState<string | null>(null);
+  
+  // Debug: Log when paidByCreditProductId changes
+  React.useEffect(() => {
+    console.log('[AddTransactionModal] paidByCreditProductId changed:', {
+      paidByCreditProductId,
+      type,
+      step,
+    });
+  }, [paidByCreditProductId, type, step]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +77,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setAmount(String(transactionToEdit.amount));
         setCategory(transactionToEdit.category || null);
         setCreditProductId(transactionToEdit.creditProductId || null);
+        setPaidByCreditProductId(transactionToEdit.paidByCreditProductId || null);
       } else {
         // Add mode: reset to defaults
         setStep(initialType ? 'amount' : 'type');
@@ -74,6 +85,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setAmount('');
         setCategory(null);
         setCreditProductId(null);
+        setPaidByCreditProductId(null);
       }
       setError(null);
       setIsSaving(false);
@@ -172,6 +184,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           amount: numAmount,
           category,
           creditProductId: type === 'credit' ? creditProductId : undefined,
+          paidByCreditProductId: type === 'expense' && paidByCreditProductId ? paidByCreditProductId : undefined,
           createdAt: transactionToEdit.createdAt, // Keep original date
         });
 
@@ -194,11 +207,25 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         // For credit transactions, use 'Credits' category for consistency in expense breakdown
         const finalCategory = type === 'credit' ? 'Credits' : category;
         
+        // Debug: Log transaction data before saving
+        const finalPaidByCreditProductId = type === 'expense' && paidByCreditProductId ? paidByCreditProductId : undefined;
+        console.log('[AddTransactionModal] Saving transaction:', {
+          type,
+          amount: numAmount,
+          category: finalCategory,
+          creditProductId: type === 'credit' ? creditProductId : undefined,
+          paidByCreditProductId: finalPaidByCreditProductId,
+          paidByCreditProductIdRaw: paidByCreditProductId,
+          paidByCreditProductIdType: typeof paidByCreditProductId,
+          createdAt,
+        });
+        
         await addTransaction({
           type,
           amount: numAmount,
           category: finalCategory,
           creditProductId: type === 'credit' ? creditProductId : undefined,
+          paidByCreditProductId: finalPaidByCreditProductId,
           createdAt,
         });
 
@@ -209,6 +236,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           } catch (err) {
             console.error('[AddTransactionModal] Failed to apply payment to credit product:', err);
             // Don't fail the transaction if payment application fails
+          }
+        }
+
+        // Add charge to credit card if expense was paid by credit card
+        if (type === 'expense' && paidByCreditProductId) {
+          try {
+            await addCharge(paidByCreditProductId, numAmount);
+          } catch (err) {
+            console.error('[AddTransactionModal] Failed to add charge to credit card:', err);
+            // Don't fail the transaction if charge addition fails
           }
         }
 
@@ -234,7 +271,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to save transaction');
       setIsSaving(false);
     }
-  }, [type, amount, category, creditProductId, isEditMode, transactionToEdit, addTransaction, updateTransaction, applyPayment, onClose]);
+  }, [type, amount, category, creditProductId, paidByCreditProductId, isEditMode, transactionToEdit, addTransaction, updateTransaction, applyPayment, addCharge, onClose, t]);
 
   const handleBack = useCallback(() => {
     setError(null);
@@ -428,6 +465,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           amount={numAmount}
           category={category}
           creditProductId={creditProductId}
+          paidByCreditProductId={paidByCreditProductId}
+          onPaidByCreditProductChange={setPaidByCreditProductId}
           currency={settings.currency}
           createdAt={new Date().toISOString()}
         />

@@ -31,8 +31,11 @@ export const CreditProductCard: React.FC<CreditProductCardProps> = ({
 
   // Calculate progress - percentage paid off
   // Progress = (totalPaid / principal) * 100
+  // totalPaid is calculated as principal - remainingBalance, so:
+  // progress = ((principal - remainingBalance) / principal) * 100
+  // This shows how much of the original principal has been paid off
   const progress = product.principal > 0 
-    ? Math.min((product.totalPaid / product.principal) * 100, 100)
+    ? Math.min(Math.max(0, (product.totalPaid / product.principal) * 100), 100)
     : 0;
 
   // Calculate percentage remaining
