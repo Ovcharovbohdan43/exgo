@@ -1,10 +1,11 @@
-export type TransactionType = 'expense' | 'income' | 'saved';
+export type TransactionType = 'expense' | 'income' | 'saved' | 'credit';
 
 export interface Transaction {
   id: string;
   type: TransactionType;
   amount: number;
   category?: string;
+  creditProductId?: string; // Link to credit product for credit transactions
   createdAt: string; // ISO string
 }
 
@@ -85,4 +86,29 @@ export interface MiniBudgetMonthlyState {
 
 export interface MiniBudgetWithState extends MiniBudget {
   state: MiniBudgetMonthlyState;
+}
+
+// Credit Products Types
+export type CreditProductType = 'credit_card' | 'fixed_loan' | 'installment';
+
+export type CreditProductStatus = 'active' | 'paid_off' | 'overdue';
+
+export interface CreditProduct {
+  id: string;
+  name: string;
+  principal: number; // Initial debt amount
+  remainingBalance: number; // Current remaining balance
+  apr: number; // Annual percentage rate (%)
+  dailyInterestRate: number; // Calculated: apr / 100 / 365
+  creditType: CreditProductType;
+  loanTermMonths?: number; // For amortization loans
+  monthlyMinimumPayment?: number;
+  dueDate?: number; // Day of month (1-31)
+  accruedInterest: number; // Daily interest accrued
+  totalPaid: number; // Total amount paid so far
+  status: CreditProductStatus;
+  startDate: string; // ISO string
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  note?: string; // Optional note
 }

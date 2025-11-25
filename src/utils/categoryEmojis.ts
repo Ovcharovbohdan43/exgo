@@ -19,6 +19,8 @@ export const CATEGORY_EMOJIS: Record<string, string> = {
   'Other / Miscellaneous': '📦',
   'Income': '💰',
   'Savings': '💾',
+  'Credits': '💳',
+  'Credit': '💳', // Legacy support
 };
 
 /**

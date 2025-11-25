@@ -25,8 +25,10 @@ export const calculateTotals = (transactions: Transaction[], monthlyIncome: numb
   // transactions are already filtered for the selected month
   const monthly = transactions;
 
+  // Expenses include both 'expense' and 'credit' transactions
+  // Credit transactions are payments made to pay off debt, so they count as expenses
   const expenses = monthly
-    .filter((tx) => tx.type === 'expense')
+    .filter((tx) => tx.type === 'expense' || tx.type === 'credit')
     .reduce((sum, tx) => sum + Math.max(tx.amount, 0), 0);
 
   const saved = monthly
@@ -52,14 +54,18 @@ export const calculateTotals = (transactions: Transaction[], monthlyIncome: numb
 
 export const categoryBreakdown = (transactions: Transaction[]) => {
   // transactions are already filtered for the selected month
-  const expenses = transactions.filter((tx) => tx.type === 'expense');
+  // Include both 'expense' and 'credit' transactions in breakdown
+  // Credit transactions are payments made to pay off debt, so they count as expenses
+  const expenses = transactions.filter((tx) => tx.type === 'expense' || tx.type === 'credit');
   const total = expenses.reduce((sum, tx) => sum + tx.amount, 0) || 1;
 
   return expenses.reduce<Record<string, { amount: number; percent: number }>>((acc, tx) => {
     if (!tx.category) return acc;
-    const current = acc[tx.category] ?? { amount: 0, percent: 0 };
+    // Normalize credit category to 'Credits' for consistency
+    const categoryName = tx.type === 'credit' && tx.category === 'Credit' ? 'Credits' : tx.category;
+    const current = acc[categoryName] ?? { amount: 0, percent: 0 };
     const nextAmount = current.amount + tx.amount;
-    acc[tx.category] = { amount: nextAmount, percent: (nextAmount / total) * 100 };
+    acc[categoryName] = { amount: nextAmount, percent: (nextAmount / total) * 100 };
     return acc;
   }, {});
 };

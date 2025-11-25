@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-nativ
 import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
+import { useCreditProducts } from '../state/CreditProductsProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate } from '../utils/date';
@@ -27,8 +28,21 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
 }) => {
   const theme = useThemeStyles();
   const { settings } = useSettings();
+  const { getCreditProductById } = useCreditProducts();
   const { t, i18n } = useTranslation();
   const customCategories = settings.customCategories || [];
+  
+  // Get credit product name if this is a credit transaction
+  const creditProduct = transaction.type === 'credit' && transaction.creditProductId 
+    ? getCreditProductById(transaction.creditProductId) 
+    : null;
+  
+  // Check if this is the first transaction for this credit product (creation transaction)
+  // First transaction is when transaction amount equals principal (initial debt amount)
+  // This indicates it's the transaction that created the credit product
+  const isFirstCreditTransaction = transaction.type === 'credit' && creditProduct 
+    ? Math.abs(transaction.amount - creditProduct.principal) < 0.01 // Allow small floating point differences
+    : false;
 
   if (!transaction) {
     return (
@@ -58,6 +72,8 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
         return theme.colors.positive;
       case 'saved':
         return theme.colors.accent;
+      case 'credit':
+        return theme.colors.warning || '#FFA500'; // Yellow color for credit transactions
       default:
         return theme.colors.textPrimary;
     }
@@ -71,6 +87,8 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
         return 'Income';
       case 'saved':
         return 'Saved';
+      case 'credit':
+        return 'Credit';
       default:
         return '';
     }
@@ -103,7 +121,9 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
               },
             ]}
           >
-            {transaction.category || 'Uncategorized'}
+            {transaction.type === 'credit' && creditProduct
+              ? creditProduct.name
+              : (transaction.category || 'Uncategorized')}
           </Text>
         </View>
         <Text
@@ -129,7 +149,9 @@ export const LastTransactionPreview: React.FC<LastTransactionPreviewProps> = ({
             },
           ]}
         >
-          {transaction.type === 'expense' ? '-' : '+'}
+          {isFirstCreditTransaction 
+            ? '' // No sign for first credit transaction (product creation)
+            : (transaction.type === 'expense' || transaction.type === 'credit') ? '-' : '+'}
           {formatCurrency(Math.abs(transaction.amount), currency)}
         </Text>
       </View>

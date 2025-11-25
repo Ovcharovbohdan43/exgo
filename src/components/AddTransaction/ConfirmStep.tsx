@@ -9,11 +9,13 @@ import { TransactionType } from '../../types';
 import { getCategoryEmoji } from '../../utils/categoryEmojis';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../../utils/categoryLocalization';
+import { useCreditProducts } from '../../state/CreditProductsProvider';
 
 type ConfirmStepProps = {
   type: TransactionType;
   amount: number;
   category: string | null;
+  creditProductId?: string | null;
   currency: string;
   createdAt: string;
   style?: ViewStyle;
@@ -27,6 +29,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   type,
   amount,
   category,
+  creditProductId,
   currency,
   createdAt,
   style,
@@ -34,10 +37,27 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   const theme = useThemeStyles();
   const { settings } = useSettings();
   const { t } = useTranslation();
+  const { getCreditProductById } = useCreditProducts();
   const customCategories = settings.customCategories || [];
+  
+  const creditProduct = creditProductId ? getCreditProductById(creditProductId) : null;
+
+  // Debug: Log received props
+  React.useEffect(() => {
+    console.log('[ConfirmStep] Props received:', {
+      type,
+      amount,
+      category,
+      creditProductId,
+      currency,
+      hasCreditProduct: !!creditProduct,
+      creditProductName: creditProduct?.name,
+    });
+  }, [type, amount, category, creditProductId, currency, creditProduct]);
 
   const getTypeLabel = () => {
-    return t(`transactions.type.${type}`);
+    if (!type) return 'Unknown';
+    return t(`transactions.type.${type}`, { defaultValue: type });
   };
 
   const getTypeColor = () => {
@@ -48,10 +68,34 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
         return theme.colors.positive;
       case 'saved':
         return theme.colors.accent;
+      case 'credit':
+        return theme.colors.warning || '#FFA500';
     }
   };
 
   const typeColor = getTypeColor();
+
+  // Early return if critical data is missing
+  if (!type || !amount || amount <= 0) {
+    console.warn('[ConfirmStep] Missing critical data:', { type, amount, category, creditProductId });
+    return (
+      <View style={style}>
+        <Text
+          style={[
+            styles.title,
+            {
+              color: theme.colors.danger,
+              fontSize: theme.typography.fontSize.md,
+              fontWeight: theme.typography.fontWeight.medium,
+              textAlign: 'center',
+            },
+          ]}
+        >
+          Error: Missing transaction data
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={style}>
@@ -67,7 +111,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
           },
         ]}
       >
-        {t('addTransaction.confirmTransaction')}
+        {t('addTransaction.confirmTransaction', { defaultValue: 'Confirm Transaction' })}
       </Text>
 
       <Card variant="elevated" padding="lg" style={styles.confirmCard}>
@@ -158,6 +202,40 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
             </Text>
           </View>
         </View>
+
+        {type === 'credit' && (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.row}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.sm,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  },
+                ]}
+              >
+                {t('addTransaction.creditProduct', { defaultValue: 'Credit Product' })}
+              </Text>
+              <Text
+                style={[
+                  styles.value,
+                  {
+                    color: creditProduct 
+                      ? theme.colors.textPrimary 
+                      : theme.colors.danger,
+                    fontSize: theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.semibold,
+                  },
+                ]}
+              >
+                {creditProduct ? creditProduct.name : (creditProductId ? `Product ID: ${creditProductId}` : 'Not selected')}
+              </Text>
+            </View>
+          </>
+        )}
 
         <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
 

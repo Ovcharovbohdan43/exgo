@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicat
 import { useThemeStyles } from '../../theme/ThemeProvider';
 import { useSettings } from '../../state/SettingsProvider';
 import { useTransactions } from '../../state/TransactionsProvider';
+import { useCreditProducts } from '../../state/CreditProductsProvider';
 import { TransactionType, Transaction } from '../../types';
 import { AmountInputStep } from './AmountInputStep';
 import { CategorySelectionStep } from './CategorySelectionStep';
@@ -38,6 +39,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const { t } = useTranslation();
   const { settings } = useSettings();
   const { addTransaction, updateTransaction } = useTransactions();
+  const { applyPayment } = useCreditProducts();
   const isEditMode = !!transactionToEdit;
 
   // Debug: Log currency when modal opens
@@ -51,6 +53,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [type, setType] = useState<TransactionType | null>(initialType || null);
   const [amount, setAmount] = useState<string>('');
   const [category, setCategory] = useState<string | null>(null);
+  const [creditProductId, setCreditProductId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +66,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setType(transactionToEdit.type);
         setAmount(String(transactionToEdit.amount));
         setCategory(transactionToEdit.category || null);
+        setCreditProductId(transactionToEdit.creditProductId || null);
       } else {
         // Add mode: reset to defaults
         setStep(initialType ? 'amount' : 'type');
         setType(initialType || null);
         setAmount('');
         setCategory(null);
+        setCreditProductId(null);
       }
       setError(null);
       setIsSaving(false);
@@ -79,11 +84,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setType(selectedType);
     setError(null);
     setCategory(null); // Reset category when type changes
+    setCreditProductId(null); // Reset credit product when type changes
     
     // Auto-select category only for saved
     if (selectedType === 'saved') {
       setCategory('Savings');
       setStep('amount');
+    } else if (selectedType === 'credit') {
+      // For credit, set category to "Credits" and go directly to category step
+      // This will show credit product selection/creation
+      setCategory('Credits');
+      setStep('category');
     } else {
       // For income and expense, let user select category
       setStep('amount');
@@ -101,13 +112,20 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setError(null);
     
     // If category is already set (saved), go to confirm
+    // For credit, category step is already done (product selected), so go to confirm
     // For income and expense, always go to category selection
     if (type === 'saved' && category) {
       setStep('confirm');
+    } else if (type === 'credit' && creditProductId) {
+      // Credit product already selected, go to confirm
+      setStep('confirm');
+    } else if (type === 'credit') {
+      // Credit type but no product selected yet, go back to category step
+      setStep('category');
     } else {
       setStep('category');
     }
-  }, [amount, type, category]);
+  }, [amount, type, category, creditProductId]);
 
   const handleCategoryNext = useCallback(() => {
     if (!category) {
@@ -115,13 +133,25 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
+    // For credit transactions, require creditProductId
+    if (type === 'credit' && !creditProductId) {
+      setError('Please select a credit product');
+      return;
+    }
+
     setError(null);
     setStep('confirm');
-  }, [category]);
+  }, [category, type, creditProductId]);
 
   const handleConfirm = useCallback(async () => {
     if (!type || !amount || !category) {
       setError('Please complete all fields');
+      return;
+    }
+
+    // For credit transactions, require creditProductId
+    if (type === 'credit' && !creditProductId) {
+      setError('Please select a credit product');
       return;
     }
 
@@ -141,6 +171,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           type,
           amount: numAmount,
           category,
+          creditProductId: type === 'credit' ? creditProductId : undefined,
           createdAt: transactionToEdit.createdAt, // Keep original date
         });
 
@@ -160,12 +191,26 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         const now = new Date();
         const createdAt = now.toISOString();
         
+        // For credit transactions, use 'Credits' category for consistency in expense breakdown
+        const finalCategory = type === 'credit' ? 'Credits' : category;
+        
         await addTransaction({
           type,
           amount: numAmount,
-          category,
+          category: finalCategory,
+          creditProductId: type === 'credit' ? creditProductId : undefined,
           createdAt,
         });
+
+        // Apply payment to credit product if this is a credit transaction
+        if (type === 'credit' && creditProductId) {
+          try {
+            await applyPayment(creditProductId, numAmount);
+          } catch (err) {
+            console.error('[AddTransactionModal] Failed to apply payment to credit product:', err);
+            // Don't fail the transaction if payment application fails
+          }
+        }
 
         // Track transaction creation
         trackTransactionCreated({
@@ -189,12 +234,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to save transaction');
       setIsSaving(false);
     }
-  }, [type, amount, category, isEditMode, transactionToEdit, addTransaction, updateTransaction, onClose]);
+  }, [type, amount, category, creditProductId, isEditMode, transactionToEdit, addTransaction, updateTransaction, applyPayment, onClose]);
 
   const handleBack = useCallback(() => {
     setError(null);
     if (step === 'confirm') {
-      if (type === 'income' || (type === 'saved' && category)) {
+      if (type === 'income' || (type === 'saved' && category) || (type === 'credit' && category)) {
         setStep('amount');
       } else {
         setStep('category');
@@ -248,6 +293,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             { type: 'expense' as TransactionType, label: t('transactions.type.expense'), emoji: '💸', color: theme.colors.danger },
             { type: 'income' as TransactionType, label: t('transactions.type.income'), emoji: '💰', color: theme.colors.positive },
             { type: 'saved' as TransactionType, label: t('transactions.type.saved'), emoji: '💾', color: theme.colors.accent },
+            { type: 'credit' as TransactionType, label: t('transactions.type.credit', { defaultValue: 'Credit' }), emoji: '💳', color: theme.colors.warning || '#FFA500' },
           ].map((item) => (
             <TouchableOpacity
               key={item.type}
@@ -336,17 +382,52 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         <CategorySelectionStep
           type={type}
           selectedCategory={category}
-          onSelect={setCategory}
+          onSelect={(cat) => {
+            setCategory(cat);
+          }}
+          selectedCreditProductId={creditProductId}
+          onSelectCreditProduct={(productId) => {
+            setCreditProductId(productId);
+            setCategory('Credits'); // Ensure category is set to 'Credits' for expense breakdown
+            // After selecting credit product, automatically go to amount step
+            if (type === 'credit') {
+              setStep('amount');
+            }
+          }}
         />
       );
     }
 
-    if (step === 'confirm' && type && amount && category) {
+    if (step === 'confirm') {
+      // Validate required fields
+      if (!type || !amount || !category) {
+        console.warn('[AddTransactionModal] Confirm step missing required fields:', {
+          type,
+          amount,
+          category,
+          creditProductId,
+        });
+        return null;
+      }
+
+      // For credit transactions, also require creditProductId
+      if (type === 'credit' && !creditProductId) {
+        console.warn('[AddTransactionModal] Credit transaction missing creditProductId');
+        return null;
+      }
+
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
+        console.warn('[AddTransactionModal] Invalid amount in confirm step:', amount);
+        return null;
+      }
+
       return (
         <ConfirmStep
           type={type}
-          amount={parseFloat(amount)}
+          amount={numAmount}
           category={category}
+          creditProductId={creditProductId}
           currency={settings.currency}
           createdAt={new Date().toISOString()}
         />
@@ -362,9 +443,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return !isNaN(numAmount) && numAmount > 0;
     }
     if (step === 'category') {
+      // For credit, require creditProductId; for others, require category
+      if (type === 'credit') {
+        return !!creditProductId;
+      }
       return !!category;
     }
     if (step === 'confirm') {
+      // For credit, also require creditProductId
+      if (type === 'credit') {
+        return !isSaving && !!type && !!amount && !!category && !!creditProductId;
+      }
       return !isSaving && !!type && !!amount && !!category;
     }
     return false;

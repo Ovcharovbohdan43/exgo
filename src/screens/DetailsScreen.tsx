@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTransactions } from '../state/TransactionsProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useMiniBudgets } from '../state/MiniBudgetsProvider';
+import { useCreditProducts } from '../state/CreditProductsProvider';
 import { useMonthlyTotals, useCategoryBreakdown } from '../state/selectors';
 import { formatCurrency } from '../utils/format';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
@@ -16,9 +17,11 @@ import { formatMonthShort } from '../utils/month';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../utils/categoryLocalization';
 import { MiniBudgetCard } from '../components/MiniBudgetCard';
+import { CreditProductCard } from '../components/CreditProductCard';
 import { AddMiniBudgetModal } from '../components/AddMiniBudgetModal';
+import { AddCreditProductModal } from '../components/AddTransaction/AddCreditProductModal';
 import { Alert } from 'react-native';
-import { MiniBudget, MiniBudgetWithState } from '../types';
+import { MiniBudget, MiniBudgetWithState, CreditProduct } from '../types';
 
 const DetailsScreen: React.FC = () => {
   const theme = useThemeStyles();
@@ -26,6 +29,7 @@ const DetailsScreen: React.FC = () => {
   const { transactions, currentMonth } = useTransactions();
   const { settings } = useSettings();
   const { getMiniBudgetsByMonth, deleteMiniBudget, updateMiniBudget } = useMiniBudgets();
+  const { getActiveCreditProducts, deleteCreditProduct, creditProducts: allCreditProducts } = useCreditProducts();
   const breakdown = useCategoryBreakdown(transactions);
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
   
@@ -33,9 +37,15 @@ const DetailsScreen: React.FC = () => {
   const [chartAnimationKey, setChartAnimationKey] = useState(0);
   const [miniBudgetModalVisible, setMiniBudgetModalVisible] = useState(false);
   const [budgetToEdit, setBudgetToEdit] = useState<MiniBudget | null>(null);
+  const [creditProductModalVisible, setCreditProductModalVisible] = useState(false);
+  const [creditProductToEdit, setCreditProductToEdit] = useState<CreditProduct | null>(null);
   
   // Get mini budgets for current month
   const miniBudgets = getMiniBudgetsByMonth(currentMonth);
+  // Get active credit products - useMemo to recalculate when allCreditProducts changes
+  const creditProducts = React.useMemo(() => {
+    return getActiveCreditProducts();
+  }, [getActiveCreditProducts, allCreditProducts.length]);
   
   // Trigger animation when screen comes into focus
   useFocusEffect(
@@ -97,6 +107,37 @@ const DetailsScreen: React.FC = () => {
     setMiniBudgetModalVisible(true);
   };
 
+  const handleCreditProductEdit = (product: CreditProduct) => {
+    setCreditProductToEdit(product);
+    setCreditProductModalVisible(true);
+  };
+
+  const handleCreditProductDelete = async (product: CreditProduct) => {
+    Alert.alert(
+      t('creditProducts.delete', { defaultValue: 'Delete Credit Product' }),
+      t('creditProducts.deleteConfirm', { defaultValue: 'Are you sure you want to delete this credit product? This action cannot be undone.' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCreditProduct(product.id);
+            } catch (error) {
+              Alert.alert(t('alerts.error'), t('alerts.somethingWentWrong'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleCreateCreditProduct = () => {
+    setCreditProductToEdit(null);
+    setCreditProductModalVisible(true);
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -155,6 +196,38 @@ const DetailsScreen: React.FC = () => {
                 onEdit={() => handleMiniBudgetEdit(budget)}
                 onDelete={() => handleMiniBudgetDelete(budget)}
                 style={styles.miniBudgetCard}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Credit Products Section */}
+      <View style={styles.creditProductsSection}>
+        <SectionHeader
+          title={t('creditProducts.title', { defaultValue: 'Credit Products' })}
+          variant="overline"
+          style={styles.sectionHeader}
+        />
+        {creditProducts.length === 0 ? (
+          <EmptyState
+            icon="💳"
+            title={t('creditProducts.noProducts', { defaultValue: 'No Credit Products' })}
+            message={t('creditProducts.noProductsMessage', { defaultValue: 'You haven\'t added any credit products yet. Add your credit cards, loans, or installment plans to track your debt.' })}
+            actionLabel={t('creditProducts.createFirst', { defaultValue: 'Create Credit Product' })}
+            onAction={handleCreateCreditProduct}
+            accessibilityLabel={t('creditProducts.noProducts', { defaultValue: 'No Credit Products' })}
+          />
+        ) : (
+          <View style={styles.creditProductsList}>
+            {creditProducts.map((product) => (
+              <CreditProductCard
+                key={product.id}
+                product={product}
+                currency={settings.currency}
+                onEdit={() => handleCreditProductEdit(product)}
+                onDelete={() => handleCreditProductDelete(product)}
+                style={styles.creditProductCard}
               />
             ))}
           </View>
@@ -255,6 +328,20 @@ const DetailsScreen: React.FC = () => {
           setBudgetToEdit(null);
         }}
       />
+
+      {/* Add/Edit Credit Product Modal */}
+      <AddCreditProductModal
+        visible={creditProductModalVisible}
+        productToEdit={creditProductToEdit}
+        onClose={() => {
+          setCreditProductModalVisible(false);
+          setCreditProductToEdit(null);
+        }}
+        onProductCreated={() => {
+          setCreditProductModalVisible(false);
+          setCreditProductToEdit(null);
+        }}
+      />
     </ScrollView>
   );
 };
@@ -284,6 +371,16 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   miniBudgetCard: {
+    marginBottom: 0,
+  },
+  creditProductsSection: {
+    marginBottom: 32,
+  },
+  creditProductsList: {
+    gap: 12,
+    marginTop: 12,
+  },
+  creditProductCard: {
     marginBottom: 0,
   },
   categoriesSection: {

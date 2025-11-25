@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState } from '../types';
+import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
@@ -7,6 +7,7 @@ const CURRENT_MONTH_KEY = 'currentMonth'; // Store current selected month
 const NOTIFICATIONS_KEY = 'notifications';
 const MINI_BUDGETS_KEY = 'miniBudgets';
 const MINI_BUDGETS_STATE_KEY = 'miniBudgetMonthlyState';
+const CREDIT_PRODUCTS_KEY = 'creditProducts';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -77,7 +78,7 @@ const validateTransactions = (data: unknown): data is Transaction[] => {
       tx !== null &&
       typeof (tx as Transaction).id === 'string' &&
       typeof (tx as Transaction).amount === 'number' &&
-      ['expense', 'income', 'saved'].includes((tx as Transaction).type) &&
+      ['expense', 'income', 'saved', 'credit'].includes((tx as Transaction).type) &&
       typeof (tx as Transaction).createdAt === 'string'
     );
   });
@@ -415,6 +416,68 @@ export const saveMiniBudgetStates = async (states: Record<string, MiniBudgetMont
 };
 
 /**
+ * Validate CreditProduct array
+ */
+const validateCreditProducts = (data: unknown): data is CreditProduct[] => {
+  if (!Array.isArray(data)) return false;
+  return data.every((product) => {
+    return (
+      typeof product === 'object' &&
+      product !== null &&
+      typeof (product as CreditProduct).id === 'string' &&
+      typeof (product as CreditProduct).name === 'string' &&
+      typeof (product as CreditProduct).principal === 'number' &&
+      typeof (product as CreditProduct).remainingBalance === 'number' &&
+      typeof (product as CreditProduct).apr === 'number' &&
+      typeof (product as CreditProduct).dailyInterestRate === 'number' &&
+      typeof (product as CreditProduct).creditType === 'string' &&
+      typeof (product as CreditProduct).accruedInterest === 'number' &&
+      typeof (product as CreditProduct).totalPaid === 'number' &&
+      typeof (product as CreditProduct).status === 'string' &&
+      typeof (product as CreditProduct).startDate === 'string' &&
+      typeof (product as CreditProduct).createdAt === 'string' &&
+      typeof (product as CreditProduct).updatedAt === 'string'
+    );
+  });
+};
+
+/**
+ * Load credit products from AsyncStorage
+ */
+export const loadCreditProducts = async (): Promise<CreditProduct[]> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(CREDIT_PRODUCTS_KEY));
+    const parsed = safeParse<CreditProduct[]>(raw);
+    
+    if (parsed && validateCreditProducts(parsed)) {
+      return parsed;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[Storage] Failed to load credit products:', error);
+    return [];
+  }
+};
+
+/**
+ * Save credit products to AsyncStorage
+ */
+export const saveCreditProducts = async (products: CreditProduct[]): Promise<void> => {
+  try {
+    if (!validateCreditProducts(products)) {
+      throw new Error('Invalid credit products structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(CREDIT_PRODUCTS_KEY, JSON.stringify(products)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save credit products:', error);
+    throw error;
+  }
+};
+
+/**
  * Reset all storage (clear all keys)
  */
 export const resetStorage = async (): Promise<void> => {
@@ -427,6 +490,7 @@ export const resetStorage = async (): Promise<void> => {
         CURRENT_MONTH_KEY,
         MINI_BUDGETS_KEY,
         MINI_BUDGETS_STATE_KEY,
+        CREDIT_PRODUCTS_KEY,
       ]),
     );
   } catch (error) {

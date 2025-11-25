@@ -10,11 +10,15 @@ import { AddCategoryModal } from './AddCategoryModal';
 import { CustomCategory } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../../utils/categoryLocalization';
+import { useCreditProducts } from '../../state/CreditProductsProvider';
+import { AddCreditProductModal } from './AddCreditProductModal';
 
 type CategorySelectionStepProps = {
   type: TransactionType;
   selectedCategory: string | null;
   onSelect: (category: string) => void;
+  selectedCreditProductId?: string | null;
+  onSelectCreditProduct?: (productId: string) => void;
   style?: ViewStyle;
 };
 
@@ -26,17 +30,156 @@ export const CategorySelectionStep: React.FC<CategorySelectionStepProps> = ({
   type,
   selectedCategory,
   onSelect,
+  selectedCreditProductId,
+  onSelectCreditProduct,
   style,
 }) => {
   const theme = useThemeStyles();
   const { settings, updateSettings } = useSettings();
   const { t } = useTranslation();
+  const { getActiveCreditProducts, hydrated: creditProductsHydrated } = useCreditProducts();
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddCreditProductModal, setShowAddCreditProductModal] = useState(false);
 
   const customCategories = settings.customCategories || [];
 
   // Filter custom categories by type
   const customCategoriesForType = customCategories.filter((cat) => cat.type === type);
+
+  // For credit type, show credit products instead of categories
+  if (type === 'credit') {
+    const creditProducts = creditProductsHydrated ? getActiveCreditProducts() : [];
+
+    return (
+      <View style={style}>
+        <Text
+          style={[
+            styles.label,
+            {
+              color: theme.colors.textPrimary,
+              fontSize: theme.typography.fontSize.md,
+              fontWeight: theme.typography.fontWeight.medium,
+              marginBottom: theme.spacing.md,
+            },
+          ]}
+        >
+          {t('addTransaction.selectCreditProduct', { defaultValue: 'Select Credit Product' })}
+        </Text>
+        
+        {/* Always show "Create Credit Product" button first, even if products exist */}
+        <TouchableOpacity
+          onPress={() => setShowAddCreditProductModal(true)}
+          activeOpacity={0.7}
+          style={{ marginBottom: 12 }}
+        >
+          <Card
+            variant="outlined"
+            padding="md"
+            style={{
+              ...styles.categoryCard,
+              ...styles.addCategoryCard,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              borderWidth: 1,
+              borderStyle: 'dashed',
+            }}
+          >
+            <Text style={styles.addCategoryIcon}>+</Text>
+            <Text
+              style={[
+                styles.categoryText,
+                {
+                  color: theme.colors.textSecondary,
+                  fontSize: theme.typography.fontSize.md,
+                  fontWeight: theme.typography.fontWeight.medium,
+                },
+              ]}
+            >
+              Create New Credit Product
+            </Text>
+          </Card>
+        </TouchableOpacity>
+        
+        {/* Show existing credit products if any */}
+        {creditProducts.length > 0 && (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.categoriesContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {creditProducts.map((product) => {
+              const isSelected = selectedCreditProductId === product.id;
+              return (
+                <TouchableOpacity
+                  key={product.id}
+                  onPress={() => {
+                    onSelect('Credits');
+                    onSelectCreditProduct?.(product.id);
+                    // After selecting product, the parent component should handle navigation
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Card
+                    variant={isSelected ? 'elevated' : 'outlined'}
+                    padding="md"
+                    style={{
+                      ...styles.categoryCard,
+                      backgroundColor: isSelected 
+                        ? (theme.colors.warning || '#FFA500') + '15' 
+                        : theme.colors.surface,
+                      borderColor: isSelected 
+                        ? (theme.colors.warning || '#FFA500') 
+                        : theme.colors.border,
+                      borderWidth: isSelected ? 2 : 1,
+                    }}
+                  >
+                    <Text style={styles.categoryEmoji}>💳</Text>
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        {
+                          color: isSelected 
+                            ? (theme.colors.warning || '#FFA500') 
+                            : theme.colors.textPrimary,
+                          fontSize: theme.typography.fontSize.md,
+                          fontWeight: isSelected 
+                            ? theme.typography.fontWeight.semibold 
+                            : theme.typography.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {product.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.subText,
+                        {
+                          color: theme.colors.textSecondary,
+                          fontSize: theme.typography.fontSize.sm,
+                        },
+                      ]}
+                    >
+                      {settings.currency} {product.remainingBalance.toFixed(2)} remaining
+                    </Text>
+                  </Card>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+        
+        <AddCreditProductModal
+          visible={showAddCreditProductModal}
+          onClose={() => setShowAddCreditProductModal(false)}
+          onProductCreated={(productId) => {
+            setShowAddCreditProductModal(false);
+            onSelect('Credits');
+            onSelectCreditProduct?.(productId);
+          }}
+        />
+      </View>
+    );
+  }
 
   // Handle adding new custom category
   const handleAddCategory = async (category: CustomCategory) => {
@@ -330,6 +473,28 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: '#9ca3af',
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptyState: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    textAlign: 'center',
+  },
+  subText: {
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  createButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonText: {
     textAlign: 'center',
   },
 });

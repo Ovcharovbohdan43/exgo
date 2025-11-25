@@ -4,6 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
+import { useCreditProducts } from '../state/CreditProductsProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
@@ -41,8 +42,21 @@ type GroupedTransaction = {
 const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency, theme, onPress, onDelete }) => {
   const swipeableRef = useRef<Swipeable>(null);
   const { settings } = useSettings();
+  const { getCreditProductById } = useCreditProducts();
   const { t } = useTranslation();
   const customCategories = settings.customCategories || [];
+  
+  // Get credit product name if this is a credit transaction
+  const creditProduct = transaction.type === 'credit' && transaction.creditProductId 
+    ? getCreditProductById(transaction.creditProductId) 
+    : null;
+  
+  // Check if this is the first transaction for this credit product (creation transaction)
+  // First transaction is when transaction amount equals principal (initial debt amount)
+  // This indicates it's the transaction that created the credit product
+  const isFirstCreditTransaction = transaction.type === 'credit' && creditProduct 
+    ? Math.abs(transaction.amount - creditProduct.principal) < 0.01 // Allow small floating point differences
+    : false;
 
   const handleDelete = () => {
     const typeLabel = t(`transactions.type.${transaction.type}`);
@@ -97,6 +111,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
         return theme.colors.positive;
       case 'saved':
         return theme.colors.accent;
+      case 'credit':
+        return theme.colors.warning || '#FFA500'; // Yellow color for credit transactions
       default:
         return theme.colors.textPrimary;
     }
@@ -110,6 +126,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
         return t('transactions.type.income');
       case 'saved':
         return t('transactions.type.saved');
+      case 'credit':
+        return t('transactions.type.credit', { defaultValue: 'Credit' });
       default:
         return '';
     }
@@ -144,7 +162,9 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
                 },
               ]}
             >
-              {transaction.category ? getLocalizedCategory(transaction.category) : t('transactions.uncategorized')}
+              {transaction.type === 'credit' && creditProduct
+                ? creditProduct.name
+                : (transaction.category ? getLocalizedCategory(transaction.category) : t('transactions.uncategorized'))}
             </Text>
           </View>
           <Text
@@ -178,7 +198,9 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
               },
             ]}
           >
-            {transaction.type === 'expense' ? '-' : '+'}
+            {isFirstCreditTransaction 
+              ? '' // No sign for first credit transaction (product creation)
+              : (transaction.type === 'expense' || transaction.type === 'credit') ? '-' : '+'}
             {formatCurrency(Math.abs(transaction.amount), currency)}
           </Text>
         </View>
