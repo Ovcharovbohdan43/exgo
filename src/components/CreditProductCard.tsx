@@ -377,7 +377,7 @@ export const CreditProductCard: React.FC<CreditProductCardProps> = ({
                     },
                   ]}
                 >
-                  {t('creditProducts.delete', { defaultValue: 'Delete' })}
+                  {t('common.delete')}
                 </Text>
               </TouchableOpacity>
             )}

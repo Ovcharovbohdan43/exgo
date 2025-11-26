@@ -114,7 +114,7 @@ const DetailsScreen: React.FC = () => {
 
   const handleCreditProductDelete = async (product: CreditProduct) => {
     Alert.alert(
-      t('creditProducts.delete', { defaultValue: 'Delete Credit Product' }),
+      t('common.delete'),
       t('creditProducts.deleteConfirm', { defaultValue: 'Are you sure you want to delete this credit product? This action cannot be undone.' }),
       [
         { text: t('common.cancel'), style: 'cancel' },
@@ -164,10 +164,25 @@ const DetailsScreen: React.FC = () => {
           centerLabelValue={totals.remaining}
           centerLabelCurrency={settings.currency}
           centerLabelColor={totals.remaining < 0 ? theme.colors.danger : theme.colors.textPrimary}
-          centerSubLabel={`${totals.remaining < 0 ? t('home.overBudget') : t('home.remaining')}\n${formatMonthShort(currentMonth)}`}
+          centerSubLabel={`${t('home.remaining')}\n${formatMonthShort(currentMonth)}`}
           centerSubLabelColor={theme.colors.textSecondary}
           animationTrigger={chartAnimationKey}
         />
+        {totals.remaining < 0 && (
+          <Text
+            style={[
+              styles.overBudgetWarning,
+              {
+                color: theme.colors.danger,
+                fontSize: theme.typography.fontSize.sm,
+                fontWeight: theme.typography.fontWeight.medium,
+                marginTop: 12,
+              },
+            ]}
+          >
+            {t('home.overBudget')} {formatCurrency(Math.abs(totals.remaining), settings.currency)}
+          </Text>
+        )}
       </View>
 
       {/* Mini Budgets Section */}
@@ -362,6 +377,10 @@ const styles = StyleSheet.create({
   },
   chartSection: {
     marginBottom: 32,
+    alignItems: 'center',
+  },
+  overBudgetWarning: {
+    textAlign: 'center',
   },
   miniBudgetsSection: {
     marginBottom: 32,

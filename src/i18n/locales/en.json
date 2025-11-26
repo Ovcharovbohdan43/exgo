@@ -189,7 +189,8 @@
     "Education & Courses": "Education & Courses",
     "Other / Miscellaneous": "Other / Miscellaneous",
     "Income": "Income",
-    "Savings": "Savings"
+    "Savings": "Savings",
+    "Credits": "Credits"
   },
   "date": {
     "today": "Today",
@@ -318,6 +319,31 @@
     "viewDetails": "View Details",
     "edit": "Edit",
     "delete": "Delete"
+  },
+  "creditProducts": {
+    "title": "Credit Products",
+    "noProducts": "No Credit Products",
+    "noProductsMessage": "You haven't added any credit products yet. Add your credit cards, loans, or installment plans to track your debt.",
+    "createFirst": "Create Credit Product",
+    "delete": "Delete Credit Product",
+    "deleteConfirm": "Are you sure you want to delete this credit product? This action cannot be undone.",
+    "edit": "Edit",
+    "remaining": "Remaining",
+    "totalOwed": "Total Owed",
+    "paid": "Paid",
+    "accruedInterest": "Accrued Interest",
+    "monthlyInterestEstimate": "Monthly Interest Est.",
+    "minimumPayment": "Min. Payment",
+    "status": {
+      "active": "Active",
+      "paid_off": "Paid Off",
+      "overdue": "Overdue"
+    },
+    "type": {
+      "credit_card": "Credit Card",
+      "fixed_loan": "Fixed Loan",
+      "installment": "Installment"
+    }
   }
 }
 

@@ -430,28 +430,35 @@ export const saveMiniBudgetStates = async (states: Record<string, MiniBudgetMont
 const validateCreditProducts = (data: unknown): data is CreditProduct[] => {
   if (!Array.isArray(data)) return false;
   return data.every((product) => {
-    return (
-      typeof product === 'object' &&
-      product !== null &&
-      typeof (product as CreditProduct).id === 'string' &&
-      typeof (product as CreditProduct).name === 'string' &&
-      typeof (product as CreditProduct).principal === 'number' &&
-      typeof (product as CreditProduct).remainingBalance === 'number' &&
-      typeof (product as CreditProduct).apr === 'number' &&
-      typeof (product as CreditProduct).dailyInterestRate === 'number' &&
-      typeof (product as CreditProduct).creditType === 'string' &&
-      typeof (product as CreditProduct).accruedInterest === 'number' &&
-      typeof (product as CreditProduct).totalPaid === 'number' &&
-      typeof (product as CreditProduct).status === 'string' &&
-      typeof (product as CreditProduct).startDate === 'string' &&
-      typeof (product as CreditProduct).createdAt === 'string' &&
-      typeof (product as CreditProduct).updatedAt === 'string'
-    );
+    if (typeof product !== 'object' || product === null) return false;
+    
+    const p = product as CreditProduct;
+    
+    // Required fields
+    if (typeof p.id !== 'string') return false;
+    if (typeof p.name !== 'string') return false;
+    if (typeof p.principal !== 'number' || isNaN(p.principal)) return false;
+    if (typeof p.remainingBalance !== 'number' || isNaN(p.remainingBalance)) return false;
+    if (typeof p.apr !== 'number' || isNaN(p.apr)) return false;
+    if (typeof p.dailyInterestRate !== 'number' || isNaN(p.dailyInterestRate)) return false;
+    if (typeof p.creditType !== 'string') return false;
+    if (typeof p.accruedInterest !== 'number' || isNaN(p.accruedInterest)) return false;
+    if (typeof p.totalPaid !== 'number' || isNaN(p.totalPaid)) return false;
+    if (typeof p.status !== 'string') return false;
+    if (typeof p.startDate !== 'string') return false;
+    if (typeof p.createdAt !== 'string') return false;
+    if (typeof p.updatedAt !== 'string') return false;
+    
+    // lastInterestCalculationDate is required but may be missing in old data
+    // We'll migrate it in loadCreditProducts if missing
+    
+    return true;
   });
 };
 
 /**
  * Load credit products from AsyncStorage
+ * Migrates old data to include lastInterestCalculationDate if missing
  */
 export const loadCreditProducts = async (): Promise<CreditProduct[]> => {
   try {
@@ -459,7 +466,19 @@ export const loadCreditProducts = async (): Promise<CreditProduct[]> => {
     const parsed = safeParse<CreditProduct[]>(raw);
     
     if (parsed && validateCreditProducts(parsed)) {
-      return parsed;
+      // Migrate old data: add lastInterestCalculationDate if missing
+      const migrated = parsed.map((product) => {
+        if (!product.lastInterestCalculationDate) {
+          // Use updatedAt or startDate as fallback
+          return {
+            ...product,
+            lastInterestCalculationDate: product.updatedAt || product.startDate,
+          };
+        }
+        return product;
+      });
+      
+      return migrated;
     }
     
     return [];

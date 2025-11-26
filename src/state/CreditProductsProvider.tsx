@@ -53,6 +53,100 @@ const calculateDailyInterestRate = (apr: number): number => {
   return apr / 100 / 365;
 };
 
+/**
+ * Calculate number of days between two dates
+ */
+const getDaysBetween = (startDate: string, endDate: string): number => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 0;
+  }
+  
+  // Calculate difference in milliseconds and convert to days
+  const diffTime = end.getTime() - start.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  return Math.max(0, diffDays);
+};
+
+/**
+ * Calculate interest for a credit product over a period
+ * For credit cards: daily compounding interest on remaining balance
+ * For fixed loans/installments: daily interest on remaining balance
+ */
+const calculateInterestForPeriod = (
+  product: CreditProduct,
+  fromDate: string,
+  toDate: string
+): number => {
+  if (product.apr === 0 || product.remainingBalance === 0) {
+    return 0;
+  }
+
+  const days = getDaysBetween(fromDate, toDate);
+  if (days === 0) {
+    return 0;
+  }
+
+  // Daily interest calculation
+  // For each day, interest is calculated on the remaining balance
+  // Formula: dailyInterest = remainingBalance * dailyInterestRate
+  // Total interest for period = sum of daily interests
+  
+  // Simplified calculation: average balance * daily rate * days
+  // More accurate would be daily compounding, but for simplicity we use:
+  // interest = remainingBalance * dailyInterestRate * days
+  const totalInterest = product.remainingBalance * product.dailyInterestRate * days;
+  
+  return Math.round(totalInterest * 100) / 100; // Round to 2 decimal places
+};
+
+/**
+ * Accrue interest for all active credit products
+ * Called when app opens to update interest since last calculation
+ */
+const accrueInterestForProducts = (products: CreditProduct[]): CreditProduct[] => {
+  const now = new Date().toISOString();
+  
+  return products.map((product) => {
+    // Skip if product is paid off or has no balance
+    if (product.status === 'paid_off' || product.remainingBalance === 0) {
+      return product;
+    }
+
+    // Skip if APR is 0
+    if (product.apr === 0) {
+      return product;
+    }
+
+    // Use lastInterestCalculationDate if available, otherwise use updatedAt or startDate
+    const lastCalculationDate = product.lastInterestCalculationDate || 
+                                product.updatedAt || 
+                                product.startDate;
+
+    // Calculate interest for the period
+    const interestForPeriod = calculateInterestForPeriod(
+      product,
+      lastCalculationDate,
+      now
+    );
+
+    if (interestForPeriod === 0) {
+      return product;
+    }
+
+    // Update product with new interest
+    return {
+      ...product,
+      accruedInterest: product.accruedInterest + interestForPeriod,
+      lastInterestCalculationDate: now,
+      updatedAt: now,
+    };
+  });
+};
+
 export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { settings, updateSettings } = useSettings();
   const [creditProducts, setCreditProducts] = useState<CreditProduct[]>([]);
@@ -199,6 +293,7 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
         startDate: now,
         createdAt: now,
         updatedAt: now,
+        lastInterestCalculationDate: now, // Initialize with current date
         note: input.note,
       };
 
@@ -265,11 +360,14 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
         throw new Error(`Credit product ${id} not found`);
       }
 
+      const now = new Date().toISOString();
       const updatedProduct: CreditProduct = {
         ...product,
         ...input,
         dailyInterestRate: input.apr !== undefined ? calculateDailyInterestRate(input.apr) : product.dailyInterestRate,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
+        // Preserve lastInterestCalculationDate if not explicitly updating APR
+        lastInterestCalculationDate: input.apr !== undefined ? now : product.lastInterestCalculationDate,
       };
 
       const updated = creditProducts.map((p) => (p.id === id ? updatedProduct : p));
@@ -312,20 +410,38 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
 
       let updatedProduct: CreditProduct = { ...product };
 
+      const now = new Date().toISOString();
+      
+      // First, accrue interest up to the payment date
+      const lastCalculationDate = product.lastInterestCalculationDate || product.updatedAt || product.startDate;
+      const interestForPeriod = calculateInterestForPeriod(product, lastCalculationDate, now);
+      
+      if (interestForPeriod > 0) {
+        updatedProduct.accruedInterest = product.accruedInterest + interestForPeriod;
+        updatedProduct.lastInterestCalculationDate = now;
+      }
+
       // For credit cards: apply payment to interest first, then principal
       if (product.creditType === 'credit_card') {
-        if (amount >= product.accruedInterest) {
+        if (amount >= updatedProduct.accruedInterest) {
           // Pay off all interest, remainder goes to principal
-          const remainingAfterInterest = amount - product.accruedInterest;
+          const remainingAfterInterest = amount - updatedProduct.accruedInterest;
           updatedProduct.accruedInterest = 0;
-          updatedProduct.remainingBalance = Math.max(0, product.remainingBalance - remainingAfterInterest);
+          updatedProduct.remainingBalance = Math.max(0, updatedProduct.remainingBalance - remainingAfterInterest);
         } else {
           // Only pay off part of interest
-          updatedProduct.accruedInterest = product.accruedInterest - amount;
+          updatedProduct.accruedInterest = updatedProduct.accruedInterest - amount;
         }
       } else {
         // For fixed loans and installment plans: apply directly to principal
-        updatedProduct.remainingBalance = Math.max(0, product.remainingBalance - amount);
+        // But still need to pay interest first if there is any
+        if (amount >= updatedProduct.accruedInterest) {
+          const remainingAfterInterest = amount - updatedProduct.accruedInterest;
+          updatedProduct.accruedInterest = 0;
+          updatedProduct.remainingBalance = Math.max(0, updatedProduct.remainingBalance - remainingAfterInterest);
+        } else {
+          updatedProduct.accruedInterest = updatedProduct.accruedInterest - amount;
+        }
       }
 
       // Calculate total paid based on principal and remaining balance
@@ -369,14 +485,22 @@ export const CreditProductsProvider: React.FC<{ children: React.ReactNode }> = (
         throw new Error('Charge amount must be greater than 0');
       }
 
+      const now = new Date().toISOString();
+      
+      // First, accrue interest up to the charge date
+      const lastCalculationDate = product.lastInterestCalculationDate || product.updatedAt || product.startDate;
+      const interestForPeriod = calculateInterestForPeriod(product, lastCalculationDate, now);
+      
       // Increase remaining balance (user spent money, increasing debt)
       const updatedProduct: CreditProduct = {
         ...product,
         remainingBalance: product.remainingBalance + amount,
+        accruedInterest: product.accruedInterest + interestForPeriod,
         // Recalculate totalPaid: it decreases when remainingBalance increases
         // totalPaid = principal - remainingBalance
         totalPaid: Math.max(0, product.principal - (product.remainingBalance + amount)),
-        updatedAt: new Date().toISOString(),
+        lastInterestCalculationDate: now,
+        updatedAt: now,
       };
 
       // Update status if needed

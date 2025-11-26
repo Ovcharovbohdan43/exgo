@@ -111,5 +111,6 @@ export interface CreditProduct {
   startDate: string; // ISO string
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
+  lastInterestCalculationDate: string; // ISO string - last date when interest was calculated
   note?: string; // Optional note
 }
