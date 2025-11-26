@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct } from '../types';
+import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct, Goal } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
@@ -8,6 +8,7 @@ const NOTIFICATIONS_KEY = 'notifications';
 const MINI_BUDGETS_KEY = 'miniBudgets';
 const MINI_BUDGETS_STATE_KEY = 'miniBudgetMonthlyState';
 const CREDIT_PRODUCTS_KEY = 'creditProducts';
+const GOALS_KEY = 'goals';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -88,6 +89,7 @@ const validateTransactions = (data: unknown): data is Transaction[] => {
     if (transaction.category !== undefined && transaction.category !== null && typeof transaction.category !== 'string') return false;
     if (transaction.creditProductId !== undefined && transaction.creditProductId !== null && typeof transaction.creditProductId !== 'string') return false;
     if (transaction.paidByCreditProductId !== undefined && transaction.paidByCreditProductId !== null && typeof transaction.paidByCreditProductId !== 'string') return false;
+    if (transaction.goalId !== undefined && transaction.goalId !== null && typeof transaction.goalId !== 'string') return false;
     
     return true;
   });
@@ -506,6 +508,72 @@ export const saveCreditProducts = async (products: CreditProduct[]): Promise<voi
 };
 
 /**
+ * Validate Goal array
+ */
+const validateGoals = (data: unknown): data is Goal[] => {
+  if (!Array.isArray(data)) return false;
+  return data.every((goal) => {
+    if (typeof goal !== 'object' || goal === null) return false;
+    
+    const g = goal as Goal;
+    
+    // Required fields
+    if (typeof g.id !== 'string') return false;
+    if (typeof g.name !== 'string') return false;
+    if (typeof g.targetAmount !== 'number' || isNaN(g.targetAmount)) return false;
+    if (typeof g.currentAmount !== 'number' || isNaN(g.currentAmount)) return false;
+    if (typeof g.currency !== 'string') return false;
+    if (typeof g.status !== 'string') return false;
+    if (!['active', 'completed', 'archived'].includes(g.status)) return false;
+    if (typeof g.createdAt !== 'string') return false;
+    if (typeof g.updatedAt !== 'string') return false;
+    
+    // Optional fields
+    if (g.emoji !== undefined && g.emoji !== null && typeof g.emoji !== 'string') return false;
+    if (g.completedAt !== undefined && g.completedAt !== null && typeof g.completedAt !== 'string') return false;
+    if (g.note !== undefined && g.note !== null && typeof g.note !== 'string') return false;
+    
+    return true;
+  });
+};
+
+/**
+ * Load goals from AsyncStorage
+ */
+export const loadGoals = async (): Promise<Goal[]> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(GOALS_KEY));
+    const parsed = safeParse<Goal[]>(raw);
+    
+    if (parsed && validateGoals(parsed)) {
+      return parsed;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[Storage] Failed to load goals:', error);
+    return [];
+  }
+};
+
+/**
+ * Save goals to AsyncStorage
+ */
+export const saveGoals = async (goals: Goal[]): Promise<void> => {
+  try {
+    if (!validateGoals(goals)) {
+      throw new Error('Invalid goals structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(GOALS_KEY, JSON.stringify(goals)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save goals:', error);
+    throw error;
+  }
+};
+
+/**
  * Reset all storage (clear all keys)
  */
 export const resetStorage = async (): Promise<void> => {
@@ -519,6 +587,7 @@ export const resetStorage = async (): Promise<void> => {
         MINI_BUDGETS_KEY,
         MINI_BUDGETS_STATE_KEY,
         CREDIT_PRODUCTS_KEY,
+        GOALS_KEY,
       ]),
     );
   } catch (error) {

@@ -138,6 +138,10 @@ const HomeScreen: React.FC = () => {
     setMiniBudgetModalVisible(true);
   };
 
+  const handleGoalSelect = () => {
+    navigation.navigate('Goals');
+  };
+
   const handleCloseModal = () => {
     setModalVisible(false);
     setTransactionToEdit(null);
@@ -447,6 +451,7 @@ const HomeScreen: React.FC = () => {
         currentMonth={currentMonth}
         onClose={handleCloseModal}
         onPlanSelect={handlePlanSelect}
+        onGoalSelect={handleGoalSelect}
       />
 
       {/* Add/Edit Mini Budget Modal */}

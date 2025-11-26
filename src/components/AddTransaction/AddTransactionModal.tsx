@@ -4,9 +4,11 @@ import { useThemeStyles } from '../../theme/ThemeProvider';
 import { useSettings } from '../../state/SettingsProvider';
 import { useTransactions } from '../../state/TransactionsProvider';
 import { useCreditProducts } from '../../state/CreditProductsProvider';
+import { useGoals } from '../../state/GoalsProvider';
 import { TransactionType, Transaction } from '../../types';
 import { AmountInputStep } from './AmountInputStep';
 import { CategorySelectionStep } from './CategorySelectionStep';
+import { GoalSelectionStep } from './GoalSelectionStep';
 import { ConfirmStep } from './ConfirmStep';
 import { parseMonthKey, getMonthKey } from '../../utils/month';
 import { trackTransactionCreated, trackTransactionUpdated } from '../../services/analytics';
@@ -19,9 +21,10 @@ type AddTransactionModalProps = {
   currentMonth?: string; // Current month key (YYYY-MM) - if provided, new transactions will use this month's date
   onClose: () => void;
   onPlanSelect?: () => void; // Callback when user selects "Plan" option
+  onGoalSelect?: () => void; // Callback when user selects "Goal" option
 };
 
-type Step = 'type' | 'amount' | 'category' | 'confirm';
+type Step = 'type' | 'amount' | 'category' | 'goal' | 'confirm';
 
 /**
  * AddTransactionModal - Full modal flow for adding a transaction
@@ -34,12 +37,14 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   currentMonth,
   onClose,
   onPlanSelect,
+  onGoalSelect,
 }) => {
   const theme = useThemeStyles();
   const { t } = useTranslation();
   const { settings } = useSettings();
   const { addTransaction, updateTransaction } = useTransactions();
   const { applyPayment, addCharge } = useCreditProducts();
+  const { getActiveGoals } = useGoals();
   const isEditMode = !!transactionToEdit;
 
   // Debug: Log currency when modal opens
@@ -55,6 +60,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [category, setCategory] = useState<string | null>(null);
   const [creditProductId, setCreditProductId] = useState<string | null>(null);
   const [paidByCreditProductId, setPaidByCreditProductId] = useState<string | null>(null);
+  const [goalId, setGoalId] = useState<string | null>(null);
   
   // Debug: Log when paidByCreditProductId changes
   React.useEffect(() => {
@@ -78,6 +84,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setCategory(transactionToEdit.category || null);
         setCreditProductId(transactionToEdit.creditProductId || null);
         setPaidByCreditProductId(transactionToEdit.paidByCreditProductId || null);
+        setGoalId(transactionToEdit.goalId || null);
       } else {
         // Add mode: reset to defaults
         setStep(initialType ? 'amount' : 'type');
@@ -86,6 +93,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setCategory(null);
         setCreditProductId(null);
         setPaidByCreditProductId(null);
+        setGoalId(null);
       }
       setError(null);
       setIsSaving(false);
@@ -152,8 +160,19 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     }
 
     setError(null);
-    setStep('confirm');
+    
+    // For saved transactions, go to goal selection step
+    if (type === 'saved') {
+      setStep('goal');
+    } else {
+      setStep('confirm');
+    }
   }, [category, type, creditProductId]);
+
+  const handleGoalNext = useCallback(() => {
+    setError(null);
+    setStep('confirm');
+  }, []);
 
   const handleConfirm = useCallback(async () => {
     if (!type || !amount || !category) {
@@ -185,6 +204,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           category,
           creditProductId: type === 'credit' ? creditProductId : undefined,
           paidByCreditProductId: type === 'expense' && paidByCreditProductId ? paidByCreditProductId : undefined,
+          goalId: type === 'saved' ? goalId || undefined : undefined,
           createdAt: transactionToEdit.createdAt, // Keep original date
         });
 
@@ -226,6 +246,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           category: finalCategory,
           creditProductId: type === 'credit' ? creditProductId : undefined,
           paidByCreditProductId: finalPaidByCreditProductId,
+          goalId: type === 'saved' ? goalId || undefined : undefined,
           createdAt,
         });
 
@@ -276,11 +297,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const handleBack = useCallback(() => {
     setError(null);
     if (step === 'confirm') {
-      if (type === 'income' || (type === 'saved' && category) || (type === 'credit' && category)) {
-        setStep('amount');
+      if (type === 'saved') {
+        setStep('goal');
       } else {
         setStep('category');
       }
+    } else if (step === 'goal') {
+      setStep('category');
     } else if (step === 'category') {
       setStep('amount');
     } else if (step === 'amount') {
@@ -292,7 +315,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     } else {
       onClose();
     }
-  }, [step, type, category, initialType, onClose]);
+  }, [step, type, initialType, onClose]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
@@ -399,6 +422,42 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               </View>
             </TouchableOpacity>
           )}
+
+          {/* Goal Option */}
+          {onGoalSelect && (
+            <TouchableOpacity
+              onPress={() => {
+                onGoalSelect();
+                onClose();
+              }}
+              activeOpacity={0.7}
+              style={styles.typeButton}
+            >
+              <View
+                style={[
+                  styles.typeCard,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.accent,
+                  },
+                ]}
+              >
+                <Text style={styles.typeEmoji}>🎯</Text>
+                <Text
+                  style={[
+                    styles.typeLabel,
+                    {
+                      color: theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  {t('goals.title', { defaultValue: 'Goals' })}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
@@ -430,6 +489,17 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             if (type === 'credit') {
               setStep('amount');
             }
+          }}
+        />
+      );
+    }
+
+    if (step === 'goal' && type === 'saved') {
+      return (
+        <GoalSelectionStep
+          selectedGoalId={goalId}
+          onSelect={(id) => {
+            setGoalId(id);
           }}
         />
       );
@@ -487,6 +557,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         return !!creditProductId;
       }
       return !!category;
+    }
+    if (step === 'goal') {
+      // Goal selection is optional for saved transactions
+      return true;
     }
     if (step === 'confirm') {
       // For credit, also require creditProductId
@@ -637,6 +711,36 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             {step === 'category' && (
               <TouchableOpacity
                 onPress={handleCategoryNext}
+                disabled={!canGoNext() || isSaving}
+                style={[
+                  styles.nextButton,
+                  {
+                    backgroundColor: canGoNext() && !isSaving 
+                      ? theme.colors.accent 
+                      : theme.colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nextButtonText,
+                    {
+                      color: canGoNext() && !isSaving 
+                        ? theme.colors.background 
+                        : theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  Next
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {step === 'goal' && (
+              <TouchableOpacity
+                onPress={handleGoalNext}
                 disabled={!canGoNext() || isSaving}
                 style={[
                   styles.nextButton,

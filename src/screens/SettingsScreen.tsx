@@ -17,6 +17,11 @@ import { checkBiometricAvailability, validatePIN, hashPIN } from '../services/au
 import { useTranslation } from 'react-i18next';
 import { supportedLanguages, changeLanguage, getCurrentLanguage } from '../i18n';
 import i18n from '../i18n';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/RootNavigator';
+
+type SettingsNav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
 type TabType = 'personalization' | 'general' | 'security';
 
@@ -26,6 +31,7 @@ const SettingsScreen: React.FC = () => {
   const { settings, updateSettings } = useSettings();
   const { resetTransactions, transactionsByMonth } = useTransactions();
   const { t } = useTranslation();
+  const navigation = useNavigation<SettingsNav>();
   const [activeTab, setActiveTab] = useState<TabType>('personalization');
   const [currency, setCurrency] = useState(settings.currency);
   const [income, setIncome] = useState(String(settings.monthlyIncome));
@@ -1012,6 +1018,36 @@ const SettingsScreen: React.FC = () => {
   const renderGeneralTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.form}>
+        {/* Goals Button */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Goals')}
+          style={[
+            styles.resetButton,
+            {
+              backgroundColor: theme.colors.accent,
+              marginBottom: theme.spacing.md,
+            },
+          ]}
+          accessible={true}
+          accessibilityLabel={t('goals.title', { defaultValue: 'Goals' })}
+          accessibilityRole="button"
+          accessibilityHint={t('goals.title', { defaultValue: 'View and manage your savings goals' })}
+          hitSlop={BUTTON_HIT_SLOP}
+        >
+          <Text
+            style={[
+              styles.resetButtonText,
+              {
+                color: theme.colors.background,
+                fontSize: theme.typography.fontSize.md,
+                fontWeight: theme.typography.fontWeight.semibold,
+              },
+            ]}
+          >
+            🎯 {t('goals.title', { defaultValue: 'Goals' })}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={handleReset}
           style={[

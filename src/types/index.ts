@@ -7,6 +7,7 @@ export interface Transaction {
   category?: string;
   creditProductId?: string; // Link to credit product for credit transactions (payments)
   paidByCreditProductId?: string; // Link to credit card used for payment (for expense transactions)
+  goalId?: string; // Link to goal for saved transactions
   createdAt: string; // ISO string
 }
 
@@ -112,5 +113,22 @@ export interface CreditProduct {
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   lastInterestCalculationDate: string; // ISO string - last date when interest was calculated
+  note?: string; // Optional note
+}
+
+// Goals Types
+export type GoalStatus = 'active' | 'completed' | 'archived';
+
+export interface Goal {
+  id: string;
+  name: string;
+  targetAmount: number; // Target amount to save
+  currentAmount: number; // Current amount saved (sum of related saved transactions)
+  currency: string;
+  emoji?: string; // Optional emoji for the goal
+  status: GoalStatus;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  completedAt?: string; // ISO string - when goal was completed
   note?: string; // Optional note
 }

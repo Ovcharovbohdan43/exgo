@@ -5,6 +5,7 @@ import { Card } from './layout';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useCreditProducts } from '../state/CreditProductsProvider';
+import { useGoals } from '../state/GoalsProvider';
 import { Transaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
@@ -43,6 +44,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   const swipeableRef = useRef<Swipeable>(null);
   const { settings } = useSettings();
   const { getCreditProductById, creditProducts } = useCreditProducts();
+  const { getGoalById } = useGoals();
   const { t } = useTranslation();
   const customCategories = settings.customCategories || [];
   
@@ -58,6 +60,11 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
     typeof transaction.paidByCreditProductId === 'string' &&
     transaction.paidByCreditProductId.trim() !== ''
     ? getCreditProductById(transaction.paidByCreditProductId) 
+    : null;
+  
+  // Get goal name if this is a saved transaction
+  const goal = transaction.type === 'saved' && transaction.goalId 
+    ? getGoalById(transaction.goalId) 
     : null;
   
   // Debug: Log payment method info
@@ -204,6 +211,20 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
                   ]}
                 >
                   {t('transactions.paidBy', { defaultValue: 'Paid by' })} {paidByCreditCard.name}
+                </Text>
+              )}
+              {goal && (
+                <Text
+                  style={[
+                    {
+                      color: theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.xs,
+                      marginTop: 2,
+                    },
+                  ]}
+                >
+                  {goal.emoji && `${goal.emoji} `}
+                  {t('transactions.forGoal', { defaultValue: 'For goal' })}: {goal.name}
                 </Text>
               )}
             </View>

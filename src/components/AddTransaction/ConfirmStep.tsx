@@ -10,6 +10,7 @@ import { getCategoryEmoji } from '../../utils/categoryEmojis';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../../utils/categoryLocalization';
 import { useCreditProducts } from '../../state/CreditProductsProvider';
+import { useGoals } from '../../state/GoalsProvider';
 
 type ConfirmStepProps = {
   type: TransactionType;
@@ -17,6 +18,7 @@ type ConfirmStepProps = {
   category: string | null;
   creditProductId?: string | null;
   paidByCreditProductId?: string | null;
+  goalId?: string | null;
   onPaidByCreditProductChange?: (productId: string | null) => void;
   currency: string;
   createdAt: string;
@@ -33,6 +35,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   category,
   creditProductId,
   paidByCreditProductId,
+  goalId,
   onPaidByCreditProductChange,
   currency,
   createdAt,
@@ -42,10 +45,12 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   const { settings } = useSettings();
   const { t } = useTranslation();
   const { getCreditProductById, getActiveCreditProducts } = useCreditProducts();
+  const { getGoalById } = useGoals();
   const customCategories = settings.customCategories || [];
   
   const creditProduct = creditProductId ? getCreditProductById(creditProductId) : null;
   const paidByCreditProduct = paidByCreditProductId ? getCreditProductById(paidByCreditProductId) : null;
+  const goal = goalId ? getGoalById(goalId) : null;
   
   // Get only credit cards (not loans or installments) for payment selection
   const creditCards = getActiveCreditProducts().filter((product) => product.creditType === 'credit_card');
@@ -245,6 +250,45 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               >
                 {creditProduct ? creditProduct.name : (creditProductId ? `Product ID: ${creditProductId}` : 'Not selected')}
               </Text>
+            </View>
+          </>
+        )}
+
+        {type === 'saved' && (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.row}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.sm,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  },
+                ]}
+              >
+                {t('addTransaction.goal', { defaultValue: 'Goal' })}
+              </Text>
+              <View style={styles.categoryValue}>
+                {goal && goal.emoji && (
+                  <Text style={styles.categoryEmoji}>{goal.emoji}</Text>
+                )}
+                <Text
+                  style={[
+                    styles.value,
+                    {
+                      color: goal 
+                        ? theme.colors.textPrimary 
+                        : theme.colors.textMuted,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  {goal ? goal.name : t('addTransaction.noGoal', { defaultValue: 'No Goal (General Savings)' })}
+                </Text>
+              </View>
             </View>
           </>
         )}

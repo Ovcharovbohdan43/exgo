@@ -8,6 +8,7 @@ import DetailsScreen from '../screens/DetailsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import GoalsScreen from '../screens/GoalsScreen';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { SettingsIcon, BellIcon } from '../components/icons';
 import { useNotifications } from '../state/NotificationProvider';
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   Details: undefined;
   Settings: undefined;
   Notifications: undefined;
+  Goals: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -165,6 +167,13 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         options={{
           title: t('notifications.title'),
           presentation: 'modal', // iOS modal presentation
+        }}
+      />
+      <Stack.Screen
+        name="Goals"
+        component={GoalsScreen}
+        options={{
+          title: t('goals.title', { defaultValue: 'Goals' }),
         }}
       />
     </Stack.Navigator>
