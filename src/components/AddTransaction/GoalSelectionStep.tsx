@@ -241,6 +241,7 @@ export const GoalSelectionStep: React.FC<GoalSelectionStepProps> = ({
         visible={showAddGoalModal}
         goalToEdit={null}
         onClose={() => setShowAddGoalModal(false)}
+        onGoalCreated={handleGoalCreated}
       />
     </View>
   );

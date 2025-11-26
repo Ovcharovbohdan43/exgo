@@ -18,6 +18,7 @@ type NotificationContextValue = {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   checkTriggers: () => Promise<void>; // Check and create notifications based on triggers
+  createGoalCompletedNotification: (goalName: string) => Promise<void>; // Create notification for goal completion
   retryHydration: () => Promise<void>;
 };
 
@@ -103,6 +104,51 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setNotifications((prev) => {
         const updated = prev.filter((n) => n.id !== id);
         persist(updated).catch(console.error);
+        return updated;
+      });
+    },
+    [persist],
+  );
+
+  // Create notification for goal completion
+  const createGoalCompletedNotification = useCallback(
+    async (goalName: string) => {
+      const now = new Date();
+      const currentMonthKey = getMonthKey(now);
+      
+      setNotifications((prevNotifications) => {
+        // Check if notification for this goal already exists (avoid duplicates)
+        const existingNotification = prevNotifications.find(
+          (n) => n.type === 'goal_completed' && n.message.includes(goalName)
+        );
+
+        if (existingNotification) {
+          console.log('[NotificationProvider] Goal completed notification already exists for:', goalName);
+          return prevNotifications;
+        }
+
+        const newNotification: Notification = {
+          id: uuidv4(),
+          type: 'goal_completed',
+          title: i18n.t('notifications.goalCompleted.title', { defaultValue: 'Goal Completed!' }),
+          message: i18n.t('notifications.goalCompleted.message', {
+            defaultValue: '{{goalName}} is completed! The ExGo team congratulates you on this achievement! 🎉',
+            goalName,
+          }),
+          createdAt: now.toISOString(),
+          read: false,
+          monthKey: currentMonthKey,
+        };
+
+        const updated = [newNotification, ...prevNotifications];
+        persist(updated).catch(console.error);
+
+        console.log('[NotificationProvider] Created goal completed notification:', {
+          notification: newNotification,
+          goalName,
+          currentMonthKey,
+        });
+
         return updated;
       });
     },
@@ -502,6 +548,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     markAllAsRead,
     deleteNotification,
     checkTriggers,
+    createGoalCompletedNotification,
     retryHydration: hydrate,
   };
 

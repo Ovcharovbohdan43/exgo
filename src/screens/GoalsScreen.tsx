@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useGoals } from '../state/GoalsProvider';
@@ -10,6 +10,7 @@ import { AddGoalModal } from '../components/AddGoalModal';
 import { Card } from '../components/layout';
 import { EmptyState } from '../components/states';
 import { SectionHeader } from '../components/layout';
+import { ConfettiAnimation } from '../components/ConfettiAnimation';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { useNavigation } from '@react-navigation/native';
@@ -24,9 +25,19 @@ const GoalsScreen: React.FC = () => {
   const { settings } = useSettings();
   const [showAddModal, setShowAddModal] = useState(false);
   const [goalToEdit, setGoalToEdit] = useState<Goal | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  const activeGoals = useMemo(() => getActiveGoals(), [goals, getActiveGoals]);
+  const activeGoals = useMemo(() => {
+    const active = getActiveGoals();
+    console.log('[GoalsScreen] Active goals updated:', active.map(g => ({ name: g.name, currentAmount: g.currentAmount, targetAmount: g.targetAmount })));
+    return active;
+  }, [goals, getActiveGoals]);
   const completedGoals = useMemo(() => goals.filter((g) => g.status === 'completed'), [goals]);
+  
+  // Debug: Log when goals change
+  useEffect(() => {
+    console.log('[GoalsScreen] Goals changed:', goals.map(g => ({ name: g.name, currentAmount: g.currentAmount, targetAmount: g.targetAmount, status: g.status })));
+  }, [goals]);
 
   const handleCreateGoal = () => {
     setGoalToEdit(null);
@@ -73,8 +84,12 @@ const GoalsScreen: React.FC = () => {
 
   const handleCompleteGoal = async (goal: Goal) => {
     try {
+      // Show confetti animation immediately
+      setShowConfetti(true);
+      // Update goal status (this will trigger re-render with green border)
       await updateGoal(goal.id, { status: 'completed' });
     } catch (error) {
+      setShowConfetti(false);
       Alert.alert(t('alerts.error'), error instanceof Error ? error.message : t('alerts.somethingWentWrong'));
     }
   };
@@ -94,7 +109,13 @@ const GoalsScreen: React.FC = () => {
         key={goal.id}
         variant="outlined"
         padding="md"
-        style={styles.goalCard}
+        style={[
+          styles.goalCard,
+          isCompleted && {
+            borderWidth: 3,
+            borderColor: theme.colors.positive,
+          },
+        ]}
       >
         <TouchableOpacity
           onPress={() => handleEditGoal(goal)}
@@ -417,6 +438,14 @@ const GoalsScreen: React.FC = () => {
         onClose={() => {
           setShowAddModal(false);
           setGoalToEdit(null);
+        }}
+      />
+
+      {/* Confetti Animation */}
+      <ConfettiAnimation
+        visible={showConfetti}
+        onComplete={() => {
+          setShowConfetti(false);
         }}
       />
     </View>

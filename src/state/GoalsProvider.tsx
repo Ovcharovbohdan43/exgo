@@ -34,7 +34,7 @@ type GoalsContextValue = {
   }) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
   recalculateGoalProgress: (goalId: string) => Promise<void>;
-  recalculateAllGoalsProgress: () => Promise<void>;
+  recalculateAllGoalsProgress: () => Promise<Goal[]>;
   retryHydration: () => Promise<void>;
 };
 
@@ -48,16 +48,20 @@ const calculateGoalCurrentAmount = (
   transactionsByMonth: Record<string, import('../types').Transaction[]>
 ): number => {
   let total = 0;
+  let foundCount = 0;
   
   // Sum all saved transactions linked to this goal across all months
   for (const transactions of Object.values(transactionsByMonth)) {
     for (const tx of transactions) {
       if (tx.type === 'saved' && tx.goalId === goalId) {
         total += tx.amount;
+        foundCount++;
+        console.log(`[GoalsProvider] Found saved transaction for goal ${goalId}: amount=${tx.amount}, total=${total}`);
       }
     }
   }
   
+  console.log(`[GoalsProvider] Calculated currentAmount for goal ${goalId}: ${total} (found ${foundCount} transactions)`);
   return total;
 };
 
@@ -88,7 +92,10 @@ const updateGoalStatus = (goal: Goal): Goal => {
   return goal;
 };
 
-export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const GoalsProvider: React.FC<{ 
+  children: React.ReactNode;
+  onGoalCompleted?: (goal: Goal) => void;
+}> = ({ children, onGoalCompleted }) => {
   const { settings } = useSettings();
   const { transactionsByMonth } = useTransactions();
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -164,12 +171,63 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [hydrated, loading, hydrate]);
 
-  // Recalculate goals when transactions change
+  // Create a memoized hash of saved transactions to track changes
+  const savedTransactionsHash = useMemo(() => {
+    const savedTxs = Object.keys(transactionsByMonth)
+      .sort()
+      .flatMap(month => 
+        (transactionsByMonth[month] || [])
+          .filter(tx => tx.type === 'saved' && tx.goalId)
+          .map(tx => ({ month, id: tx.id, goalId: tx.goalId, amount: tx.amount }))
+      )
+      .sort((a, b) => a.id.localeCompare(b.id));
+    
+    return JSON.stringify(savedTxs);
+  }, [transactionsByMonth]);
+  
+  // Track previous hash to detect changes
+  const prevHashRef = useRef<string>('');
+  
+  // Track if we have goals to avoid unnecessary recalculations
+  const hasGoalsRef = useRef(false);
   useEffect(() => {
-    if (hydrated && goals.length > 0) {
-      recalculateAllGoalsProgress();
+    hasGoalsRef.current = goals.length > 0;
+  }, [goals.length]);
+  
+  // Recalculate goals when saved transactions change
+  useEffect(() => {
+    if (!hydrated) {
+      console.log('[GoalsProvider] Not hydrated yet, skipping recalculation');
+      return;
     }
-  }, [transactionsByMonth, hydrated]);
+    
+    // Check if we have goals using ref to avoid dependency issues
+    if (!hasGoalsRef.current) {
+      console.log('[GoalsProvider] No goals, skipping recalculation');
+      return;
+    }
+    
+    // Only recalculate if saved transactions actually changed
+    if (prevHashRef.current === savedTransactionsHash) {
+      console.log('[GoalsProvider] Saved transactions hash unchanged, skipping recalculation');
+      return;
+    }
+    
+    console.log('[GoalsProvider] Saved transactions changed, recalculating goals progress');
+    console.log('[GoalsProvider] Hash:', savedTransactionsHash.substring(0, 200));
+    prevHashRef.current = savedTransactionsHash;
+    
+    recalculateAllGoalsProgress().then((newlyCompleted) => {
+      console.log('[GoalsProvider] Recalculation complete, newly completed:', newlyCompleted.length);
+      // Trigger callbacks for newly completed goals
+      if (newlyCompleted.length > 0 && onGoalCompleted) {
+        newlyCompleted.forEach((goal) => {
+          console.log('[GoalsProvider] Triggering onGoalCompleted for:', goal.name);
+          onGoalCompleted(goal);
+        });
+      }
+    });
+  }, [savedTransactionsHash, hydrated, recalculateAllGoalsProgress, onGoalCompleted]);
 
   const recalculateGoalProgress = useCallback(async (goalId: string) => {
     const goal = goals.find((g) => g.id === goalId);
@@ -192,24 +250,56 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [goals, transactionsByMonth]);
 
-  const recalculateAllGoalsProgress = useCallback(async () => {
-    if (goals.length === 0) return;
+  const recalculateAllGoalsProgress = useCallback(async (): Promise<Goal[]> => {
+    // Use functional update to get latest goals state
+    return new Promise<Goal[]>((resolve) => {
+      setGoals((currentGoals) => {
+        if (currentGoals.length === 0) {
+          console.log('[GoalsProvider] No goals to recalculate');
+          resolve([]);
+          return currentGoals;
+        }
 
-    const recalculated = goals.map((goal) => {
-      const currentAmount = calculateGoalCurrentAmount(goal.id, transactionsByMonth);
-      const updatedGoal = { ...goal, currentAmount };
-      return updateGoalStatus(updatedGoal);
+        console.log('[GoalsProvider] Recalculating all goals progress, goals count:', currentGoals.length);
+        
+        // Track which goals were just completed
+        const previouslyCompleted = new Set(currentGoals.filter(g => g.status === 'completed').map(g => g.id));
+
+        const recalculated = currentGoals.map((goal) => {
+          const currentAmount = calculateGoalCurrentAmount(goal.id, transactionsByMonth);
+          console.log(`[GoalsProvider] Goal ${goal.name}: currentAmount=${currentAmount}, targetAmount=${goal.targetAmount}, previous=${goal.currentAmount}`);
+          const updatedGoal = { ...goal, currentAmount };
+          return updateGoalStatus(updatedGoal);
+        });
+
+        // Find newly completed goals
+        const newlyCompleted = recalculated.filter(
+          (goal) => goal.status === 'completed' && !previouslyCompleted.has(goal.id)
+        );
+
+        // Check if any goals actually changed
+        const hasChanges = recalculated.some((goal, index) => {
+          const oldGoal = currentGoals[index];
+          return goal.currentAmount !== oldGoal.currentAmount || goal.status !== oldGoal.status;
+        });
+
+        // Always update state to ensure UI is in sync
+        console.log('[GoalsProvider] Updating goals state, hasChanges:', hasChanges, 'newlyCompleted:', newlyCompleted.length);
+        
+        // Save asynchronously
+        saveGoals(recalculated).then(() => {
+          console.log('[GoalsProvider] Recalculated all goals progress and saved');
+        }).catch((err) => {
+          console.error('[GoalsProvider] Failed to save recalculated goals:', err);
+        });
+        
+        // Resolve promise with newly completed goals
+        resolve(newlyCompleted);
+        
+        return recalculated;
+      });
     });
-
-    setGoals(recalculated);
-
-    try {
-      await saveGoals(recalculated);
-      console.log('[GoalsProvider] Recalculated all goals progress');
-    } catch (err) {
-      console.error('[GoalsProvider] Failed to save recalculated goals:', err);
-    }
-  }, [goals, transactionsByMonth]);
+  }, [transactionsByMonth]);
 
   const getActiveGoals = useCallback(() => {
     return goals.filter((goal) => goal.status === 'active');
@@ -279,8 +369,21 @@ export const GoalsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const currentAmount = calculateGoalCurrentAmount(id, transactionsByMonth);
     updatedGoal.currentAmount = currentAmount;
 
-    // Update status based on current amount
-    const finalGoal = updateGoalStatus(updatedGoal);
+    // Update status based on current amount, but preserve explicitly set status
+    let finalGoal: Goal;
+    if (input.status !== undefined) {
+      // If status is explicitly set, use it (but still update completedAt if needed)
+      finalGoal = {
+        ...updatedGoal,
+        status: input.status,
+        completedAt: input.status === 'completed' 
+          ? (updatedGoal.completedAt || new Date().toISOString())
+          : undefined,
+      };
+    } else {
+      // Otherwise, auto-update status based on current amount
+      finalGoal = updateGoalStatus(updatedGoal);
+    }
 
     const updated = goals.map((g) => (g.id === id ? finalGoal : g));
     setGoals(updated);

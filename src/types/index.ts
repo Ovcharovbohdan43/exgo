@@ -45,7 +45,8 @@ export type NotificationType =
   | 'large_expense_spike'
   | 'low_balance_20_percent'
   | 'mini_budget_warning'
-  | 'mini_budget_over';
+  | 'mini_budget_over'
+  | 'goal_completed';
 
 export interface Notification {
   id: string;

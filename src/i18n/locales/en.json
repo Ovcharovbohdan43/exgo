@@ -138,7 +138,9 @@
     "created": "Goal created successfully!",
     "updated": "Goal updated successfully!",
     "nameRequired": "Please enter a goal name",
-    "amountRequired": "Please enter a valid target amount greater than 0"
+    "amountRequired": "Please enter a valid target amount greater than 0",
+    "completedTitle": "Goal Completed!",
+    "completedMessage": "{{goalName}} is completed! The ExGo team congratulates you on this achievement! 🎉"
   },
   "settings": {
     "title": "Settings",
@@ -288,6 +290,10 @@
     "miniBudgetOver": {
       "title": "Mini Budget Exceeded",
       "message": "You've exceeded your mini budget \"{{budgetName}}\" (limit: {{limit}}). You've spent {{spent}} which is {{over}} over the limit."
+    },
+    "goalCompleted": {
+      "title": "Goal Completed!",
+      "message": "{{goalName}} is completed! The ExGo team congratulates you on this achievement! 🎉"
     }
   },
   "alerts": {

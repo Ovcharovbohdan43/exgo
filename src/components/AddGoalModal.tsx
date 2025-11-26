@@ -11,6 +11,7 @@ type AddGoalModalProps = {
   visible: boolean;
   goalToEdit?: Goal | null;
   onClose: () => void;
+  onGoalCreated?: (goalId: string) => void;
 };
 
 // Popular emojis for goals
@@ -27,6 +28,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   visible,
   goalToEdit,
   onClose,
+  onGoalCreated,
 }) => {
   const theme = useThemeStyles();
   const { t } = useTranslation();
@@ -84,13 +86,17 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
         Alert.alert(t('alerts.success'), t('goals.updated', { defaultValue: 'Goal updated successfully!' }));
       } else {
         // Create new goal
-        await createGoal({
+        const newGoal = await createGoal({
           name: trimmedName,
           targetAmount: amount,
           emoji: selectedEmoji,
           note: note.trim() || undefined,
         });
         Alert.alert(t('alerts.success'), t('goals.created', { defaultValue: 'Goal created successfully!' }));
+        // Call onGoalCreated callback if provided
+        if (onGoalCreated && newGoal) {
+          onGoalCreated(newGoal.id);
+        }
       }
       onClose();
     } catch (error) {

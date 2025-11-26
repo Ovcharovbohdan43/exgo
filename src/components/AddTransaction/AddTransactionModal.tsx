@@ -45,6 +45,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const { addTransaction, updateTransaction } = useTransactions();
   const { applyPayment, addCharge } = useCreditProducts();
   const { getActiveGoals } = useGoals();
+  const activeGoals = getActiveGoals();
   const isEditMode = !!transactionToEdit;
 
   // Debug: Log currency when modal opens
@@ -70,6 +71,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       step,
     });
   }, [paidByCreditProductId, type, step]);
+
+  // Auto-select sole active goal when entering goal step for saved transactions
+  React.useEffect(() => {
+    if (type === 'saved' && step === 'goal' && !goalId && activeGoals.length === 1) {
+      setGoalId(activeGoals[0].id);
+      console.log('[AddTransactionModal] Auto-selected single active goal for saved transaction', {
+        goalId: activeGoals[0].id,
+      });
+    }
+  }, [type, step, goalId, activeGoals]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,11 +142,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
     setError(null);
     
-    // If category is already set (saved), go to confirm
-    // For credit, category step is already done (product selected), so go to confirm
-    // For income and expense, always go to category selection
-    if (type === 'saved' && category) {
-      setStep('confirm');
+    // For saved transactions, always go to goal selection step
+    if (type === 'saved') {
+      setStep('goal');
     } else if (type === 'credit' && creditProductId) {
       // Credit product already selected, go to confirm
       setStep('confirm');
@@ -175,6 +184,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   }, []);
 
   const handleConfirm = useCallback(async () => {
+    console.log('[AddTransactionModal] Confirm pressed', {
+      type,
+      amount,
+      category,
+      goalId,
+    });
+
     if (!type || !amount || !category) {
       setError('Please complete all fields');
       return;
@@ -189,6 +205,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       setError('Invalid amount');
+      return;
+    }
+
+    // Saved transactions must be linked to a goal to update its progress
+    if (type === 'saved' && !goalId) {
+      setError('Please select a goal to link this saving');
       return;
     }
 
@@ -292,7 +314,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to save transaction');
       setIsSaving(false);
     }
-  }, [type, amount, category, creditProductId, paidByCreditProductId, isEditMode, transactionToEdit, addTransaction, updateTransaction, applyPayment, addCharge, onClose, t]);
+  }, [type, amount, category, creditProductId, paidByCreditProductId, goalId, isEditMode, transactionToEdit, addTransaction, updateTransaction, applyPayment, addCharge, onClose, t]);
 
   const handleBack = useCallback(() => {
     setError(null);
@@ -536,6 +558,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           category={category}
           creditProductId={creditProductId}
           paidByCreditProductId={paidByCreditProductId}
+          goalId={goalId}
           onPaidByCreditProductChange={setPaidByCreditProductId}
           currency={settings.currency}
           createdAt={new Date().toISOString()}
@@ -920,4 +943,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
 });
-
