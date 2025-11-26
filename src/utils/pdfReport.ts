@@ -1,14 +1,144 @@
-import { Transaction } from '../types';
+import { Transaction, SupportedLanguage } from '../types';
 import { calculateTotals, categoryBreakdown } from '../modules/calculations';
 import { formatCurrency, getCurrencySymbol } from './format';
-import { formatMonthName, parseMonthKey } from './month';
-import { formatDateWithDay, getDateKey } from './date';
+import { parseMonthKey } from './month';
+import { getDateKey } from './date';
+import enTranslations from '../i18n/locales/en.json';
+import ukTranslations from '../i18n/locales/uk.json';
+
+/**
+ * Get translation for a specific language
+ */
+const getTranslation = (lang: SupportedLanguage, key: string, defaultValue?: string): string => {
+  try {
+    const translations = lang === 'uk' ? ukTranslations : enTranslations;
+    
+    // Debug: check if translations object exists
+    if (!translations || typeof translations !== 'object') {
+      console.error(`[pdfReport] Translations object is invalid for language: ${lang}`, translations);
+      return defaultValue || key;
+    }
+    
+    const keys = key.split('.');
+    let value: any = translations;
+    
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        console.warn(`[pdfReport] Translation key not found: ${key} for language ${lang} at step "${k}", current value:`, value);
+        return defaultValue || key;
+      }
+    }
+    
+    if (typeof value === 'string') {
+      return value;
+    } else {
+      console.warn(`[pdfReport] Translation value is not a string for key: ${key} (language: ${lang}), got:`, typeof value, value);
+      return defaultValue || key;
+    }
+  } catch (error) {
+    console.error(`[pdfReport] Error getting translation for key: ${key} (language: ${lang}):`, error);
+    return defaultValue || key;
+  }
+};
+
+/**
+ * Get localized category name for a specific language
+ */
+const getLocalizedCategoryForLanguage = (category: string, language: SupportedLanguage): string => {
+  const translation = getTranslation(language, `categories.${category}`, category);
+  return translation;
+};
+
+/**
+ * Format month name for a specific language
+ */
+const formatMonthNameForLanguage = (monthKey: string, language: SupportedLanguage): string => {
+  const date = parseMonthKey(monthKey);
+  const localeMap: Record<SupportedLanguage, string> = {
+    'en': 'en-US',
+    'uk': 'uk-UA',
+  };
+  const locale = localeMap[language] || 'en-US';
+  return date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+};
+
+/**
+ * Format date with day of week for a specific language
+ */
+const formatDateWithDayForLanguage = (isoDate: string, language: SupportedLanguage): string => {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  // Get localized day of week
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayKey = dayKeys[date.getDay()];
+  const dayOfWeek = getTranslation(language, `date.daysOfWeek.${dayKey}`, dayKey);
+
+  if (dateOnly.getTime() === today.getTime()) {
+    return `${getTranslation(language, 'date.today', 'Today')}, ${dayOfWeek}`;
+  }
+  if (dateOnly.getTime() === yesterday.getTime()) {
+    return `${getTranslation(language, 'date.yesterday', 'Yesterday')}, ${dayOfWeek}`;
+  }
+
+  // Format as "Jan 15, Monday" or "Dec 31, Friday" using localized month names
+  const monthKeys = ['january', 'february', 'march', 'april', 'may', 'june', 
+                     'july', 'august', 'september', 'october', 'november', 'december'];
+  const monthKey = monthKeys[date.getMonth()];
+  const monthShort = getTranslation(language, `date.monthsShort.${monthKey}`, monthKey);
+  return `${monthShort} ${date.getDate()}, ${dayOfWeek}`;
+};
+
+/**
+ * PDF Report localization strings getter
+ */
+const getPdfReportStrings = (language: SupportedLanguage) => {
+  console.log('[pdfReport] getPdfReportStrings called with language:', language);
+  console.log('[pdfReport] Available translations:', language === 'uk' ? 'ukTranslations' : 'enTranslations');
+  
+  const title = getTranslation(language, 'pdfReport.title', 'Monthly Financial Report');
+  console.log('[pdfReport] Title translation:', title, 'for language:', language);
+  
+  return {
+    title,
+    totalIncome: getTranslation(language, 'pdfReport.totalIncome', 'Total Income'),
+    totalExpenses: getTranslation(language, 'pdfReport.totalExpenses', 'Total Expenses'),
+    totalSaved: getTranslation(language, 'pdfReport.totalSaved', 'Total Saved'),
+    remaining: getTranslation(language, 'pdfReport.remaining', 'Remaining'),
+    budgetOverview: getTranslation(language, 'pdfReport.budgetOverview', 'Budget Overview'),
+    expenses: getTranslation(language, 'pdfReport.expenses', 'Expenses'),
+    saved: getTranslation(language, 'pdfReport.saved', 'Saved'),
+    dailySpending: getTranslation(language, 'pdfReport.dailySpending', 'Daily Spending'),
+    topExpenseCategories: getTranslation(language, 'pdfReport.topExpenseCategories', 'Top Expense Categories'),
+    transactionHistory: getTranslation(language, 'pdfReport.transactionHistory', 'Transaction History'),
+    date: getTranslation(language, 'pdfReport.date', 'Date'),
+    type: getTranslation(language, 'pdfReport.type', 'Type'),
+    category: getTranslation(language, 'pdfReport.category', 'Category'),
+    amount: getTranslation(language, 'pdfReport.amount', 'Amount'),
+    ofTotalExpenses: getTranslation(language, 'pdfReport.ofTotalExpenses', 'of total expenses'),
+    generatedOn: getTranslation(language, 'pdfReport.generatedOn', 'Generated on'),
+    appName: getTranslation(language, 'pdfReport.appName', 'ExGo Budgeting App'),
+    expense: getTranslation(language, 'transactions.type.expense', 'expense'),
+    income: getTranslation(language, 'transactions.type.income', 'income'),
+    savedType: getTranslation(language, 'transactions.type.saved', 'saved'),
+    credit: getTranslation(language, 'transactions.type.credit', 'credit'),
+  };
+};
 
 export interface MonthlyReportData {
   monthKey: string;
   transactions: Transaction[];
   monthlyIncome: number;
   currency: string;
+  language?: 'en' | 'uk'; // Language for report localization
 }
 
 /**
@@ -40,6 +170,7 @@ const generateDonutChartSVG = (
   remaining: number,
   totalIncome: number,
   currency: string,
+  remainingLabel: string,
   size: number = 200,
 ): string => {
   const radius = size / 2 - 10;
@@ -62,12 +193,17 @@ const generateDonutChartSVG = (
 
   // Format remaining amount with currency (show actual value, even if negative)
   const remainingFormatted = formatCurrency(remaining, currency);
+  
+  // Color for center label: red if negative (over budget), otherwise dark gray
+  const centerLabelColor = remaining < 0 ? '#ef4444' : '#1f2937';
 
   // Calculate total for segment positioning (same logic as in app)
+  // Clamp remaining at 0 for visual representation (same as chartRemaining)
   const clampedRemaining = Math.max(remaining, 0);
   const total = Math.max(expenses + saved + clampedRemaining, 1);
   
   // Calculate segment lengths based on total (not totalIncome) to match app logic
+  // This matches the logic in DonutChart component: spent / total, saved / total, clampedRemaining / total
   const expensesSegmentLength = (expenses / total) * circumference;
   const savedSegmentLength = (saved / total) * circumference;
   const remainingSegmentLength = (clampedRemaining / total) * circumference;
@@ -136,7 +272,7 @@ const generateDonutChartSVG = (
         font-family="Arial, sans-serif"
         font-size="20"
         font-weight="bold"
-        fill="#1f2937"
+        fill="${centerLabelColor}"
       >${remainingFormatted}</text>
       <text
         x="${center}"
@@ -145,7 +281,7 @@ const generateDonutChartSVG = (
         font-family="Arial, sans-serif"
         font-size="14"
         fill="#6b7280"
-      >Remaining</text>
+      >${remainingLabel}</text>
     </svg>
   `;
 };
@@ -203,7 +339,20 @@ const generateDailySpendingChart = (
  * Generate HTML report for PDF export
  */
 export const generateReportHTML = (data: MonthlyReportData): string => {
-  const { monthKey, transactions, monthlyIncome, currency } = data;
+  const { monthKey, transactions, monthlyIncome, currency, language = 'en' } = data;
+  
+  // Ensure language is valid - normalize to 'en' or 'uk'
+  const languageStr = String(language);
+  let validLanguage: SupportedLanguage = 'en';
+  if (languageStr === 'uk' || languageStr.startsWith('uk')) {
+    validLanguage = 'uk';
+  } else if (languageStr === 'en' || languageStr.startsWith('en')) {
+    validLanguage = 'en';
+  }
+  
+  console.log('[pdfReport] Generating report with language:', validLanguage, 'original:', language, 'type:', typeof language, 'stringified:', languageStr);
+  
+  const t = getPdfReportStrings(validLanguage);
   const totals = calculateTotals(transactions, monthlyIncome);
   const categoryData = categoryBreakdown(transactions);
   const dailySpending = getDailySpendingData(transactions);
@@ -211,7 +360,7 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
     ? Math.max(...dailySpending.map((d) => d.amount)) 
     : 0;
 
-  const monthName = formatMonthName(monthKey);
+  const monthName = formatMonthNameForLanguage(monthKey, validLanguage);
   const currencySymbol = getCurrencySymbol(currency);
 
   // Sort transactions by date (newest first)
@@ -242,6 +391,7 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
     totals.remaining,
     totals.income,
     currency,
+    t.remaining,
   );
 
   const dailyChartSVG = generateDailySpendingChart(dailySpending, maxDailyAmount);
@@ -415,6 +565,7 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
     }
     .transactions-section {
       margin-bottom: 40px;
+      page-break-before: always;
     }
     .transactions-table {
       width: 100%;
@@ -492,13 +643,16 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
       .chart-section {
         page-break-inside: avoid;
       }
+      .transactions-section {
+        page-break-before: always;
+      }
     }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-left">
-      <h1>Monthly Financial Report</h1>
+      <h1>${t.title}</h1>
       <div class="subtitle">${monthName}</div>
     </div>
     <div class="header-logo">ExGo</div>
@@ -506,41 +660,41 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
 
   <div class="summary-section">
     <div class="summary-card income">
-      <h3>Total Income</h3>
+      <h3>${t.totalIncome}</h3>
       <div class="value">${formatCurrency(totals.income, currency)}</div>
     </div>
     <div class="summary-card expenses">
-      <h3>Total Expenses</h3>
+      <h3>${t.totalExpenses}</h3>
       <div class="value">${formatCurrency(totals.expenses, currency)}</div>
     </div>
     <div class="summary-card saved">
-      <h3>Total Saved</h3>
+      <h3>${t.totalSaved}</h3>
       <div class="value">${formatCurrency(totals.saved, currency)}</div>
     </div>
     <div class="summary-card remaining">
-      <h3>Remaining</h3>
+      <h3>${t.remaining}</h3>
       <div class="value">${formatCurrency(totals.remaining, currency)}</div>
     </div>
   </div>
 
   <div class="chart-section">
     <div class="chart-container">
-      <div class="chart-title">Budget Overview</div>
+      <div class="chart-title">${t.budgetOverview}</div>
       <div class="chart-wrapper">
         ${donutChartSVG}
       </div>
       <div class="chart-legend">
         <div class="legend-item">
           <div class="legend-color expenses"></div>
-          <span>Expenses: ${formatCurrency(totals.expenses, currency)}</span>
+          <span>${t.expenses}: ${formatCurrency(totals.expenses, currency)}</span>
         </div>
         <div class="legend-item">
           <div class="legend-color saved"></div>
-          <span>Saved: ${formatCurrency(totals.saved, currency)}</span>
+          <span>${t.saved}: ${formatCurrency(totals.saved, currency)}</span>
         </div>
         <div class="legend-item">
           <div class="legend-color remaining"></div>
-          <span>Remaining: ${formatCurrency(totals.remaining, currency)}</span>
+          <span>${t.remaining}: ${formatCurrency(totals.remaining, currency)}</span>
         </div>
       </div>
     </div>
@@ -549,7 +703,7 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
   ${dailySpending.length > 0 ? `
   <div class="chart-section">
     <div class="chart-container">
-      <div class="chart-title">Daily Spending</div>
+      <div class="chart-title">${t.dailySpending}</div>
       <div class="chart-wrapper">
         ${dailyChartSVG}
       </div>
@@ -559,17 +713,20 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
 
   ${topCategories.length > 0 ? `
   <div class="categories-section">
-    <h2 class="chart-title">Top Expense Categories</h2>
+    <h2 class="chart-title">${t.topExpenseCategories}</h2>
     <div class="categories-grid">
-      ${topCategories
+        ${topCategories
         .map(
-          ([category, data]) => `
+          ([category, data]) => {
+            const localizedCategory = getLocalizedCategoryForLanguage(category, validLanguage);
+            return `
         <div class="category-item">
-          <div class="category-name">${category}</div>
+          <div class="category-name">${localizedCategory}</div>
           <div class="category-amount">${formatCurrency(data.amount, currency)}</div>
-          <div class="category-percent">${data.percent.toFixed(1)}% of total expenses</div>
+          <div class="category-percent">${data.percent.toFixed(1)}% ${t.ofTotalExpenses}</div>
         </div>
-      `,
+      `;
+          },
         )
         .join('')}
     </div>
@@ -577,21 +734,21 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
   ` : ''}
 
   <div class="transactions-section">
-    <h2 class="chart-title">Transaction History</h2>
+    <h2 class="chart-title">${t.transactionHistory}</h2>
     <table class="transactions-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Category</th>
-          <th>Amount</th>
+          <th>${t.date}</th>
+          <th>${t.type}</th>
+          <th>${t.category}</th>
+          <th>${t.amount}</th>
         </tr>
       </thead>
       <tbody>
         ${Object.entries(groupedTransactions)
           .sort((a, b) => b[0].localeCompare(a[0]))
           .map(([dateKey, txs]) => {
-            const dateLabel = formatDateWithDay(txs[0].createdAt);
+            const dateLabel = formatDateWithDayForLanguage(txs[0].createdAt, validLanguage);
             return `
               <tr class="date-group">
                 <td colspan="4">${dateLabel}</td>
@@ -599,21 +756,24 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
               ${txs
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .map(
-                  (tx) => `
+                  (tx) => {
+                    const localizedCategory = tx.category ? getLocalizedCategoryForLanguage(tx.category, validLanguage) : getTranslation(validLanguage, 'transactions.uncategorized', '-');
+                    return `
                 <tr>
-                  <td>${new Date(tx.createdAt).toLocaleTimeString('en-US', {
+                  <td>${new Date(tx.createdAt).toLocaleTimeString(validLanguage === 'uk' ? 'uk-UA' : 'en-US', {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}</td>
                   <td>
-                    <span class="transaction-type ${tx.type}">${tx.type}</span>
+                    <span class="transaction-type ${tx.type}">${tx.type === 'expense' ? t.expense : tx.type === 'income' ? t.income : tx.type === 'saved' ? t.savedType : tx.type === 'credit' ? t.credit : tx.type}</span>
                   </td>
-                  <td>${tx.category || '-'}</td>
+                  <td>${localizedCategory}</td>
                   <td class="transaction-amount ${tx.type}">
                     ${tx.type === 'expense' ? '-' : '+'}${formatCurrency(tx.amount, currency)}
                   </td>
                 </tr>
-              `,
+              `;
+                  },
                 )
                 .join('')}
             `;
@@ -624,12 +784,12 @@ export const generateReportHTML = (data: MonthlyReportData): string => {
   </div>
 
   <div class="footer">
-    <p>Generated on ${new Date().toLocaleDateString('en-US', {
+    <p>${t.generatedOn} ${new Date().toLocaleDateString(validLanguage === 'uk' ? 'uk-UA' : 'en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     })}</p>
-    <p>ExGo Budgeting App</p>
+    <p>${t.appName}</p>
   </div>
 </body>
 </html>

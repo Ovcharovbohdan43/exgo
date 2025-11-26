@@ -4,6 +4,34 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-XX] - Localization: PDF Reports
+
+#### Added
+- **Complete localization of PDF reports**: PDF reports are now fully localized based on the selected language in settings
+  - All report strings (titles, labels, headers) are now translated
+  - Category names are localized in the report
+  - Date formatting (month names, day names, "Today", "Yesterday") uses the selected language
+  - Transaction types (expense, income, saved, credit) are localized
+  - Generated date and time use the correct locale format
+  - Report language is automatically determined from user settings (`settings.language`)
+
+#### Technical Details
+- Updated `src/utils/pdfReport.ts` to use i18n translation resources instead of static strings
+- Created helper functions for language-aware localization:
+  - `getTranslation()` - Get translation for a specific language (not current i18n language)
+  - `getLocalizedCategoryForLanguage()` - Get localized category name for a specific language
+  - `formatMonthNameForLanguage()` - Format month name for a specific language
+  - `formatDateWithDayForLanguage()` - Format date with day of week for a specific language
+- Added new translation keys in `src/i18n/locales/en.json` and `src/i18n/locales/uk.json`:
+  - `pdfReport.*` - All PDF report specific strings (title, labels, etc.)
+- PDF reports now use the language from `settings.language` parameter, ensuring consistency even if i18n language changes
+- Category names in reports are now properly localized using the same translation keys as the app UI
+
+#### Files Changed
+- `src/utils/pdfReport.ts` - Complete refactoring to use i18n translations with language parameter
+- `src/i18n/locales/en.json` - Added `pdfReport` section with all PDF report strings
+- `src/i18n/locales/uk.json` - Added Ukrainian translations for PDF report strings
+
 ### [2025-01-XX] - Localization: Spending Breakdown (Details Screen)
 
 #### Added

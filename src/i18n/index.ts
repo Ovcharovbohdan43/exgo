@@ -51,8 +51,20 @@ export const changeLanguage = (lang: SupportedLanguage) => {
 
 /**
  * Get current language
+ * Handles cases where i18n.language might be 'uk-UA' or 'en-US' instead of 'uk' or 'en'
  */
 export const getCurrentLanguage = (): SupportedLanguage => {
-  return (i18n.language as SupportedLanguage) || 'en';
+  const lang = i18n.language || 'en';
+  
+  // Handle locale codes like 'uk-UA', 'en-US', etc.
+  if (lang.startsWith('uk')) {
+    return 'uk';
+  }
+  if (lang.startsWith('en')) {
+    return 'en';
+  }
+  
+  // Fallback to 'en' if language is not recognized
+  return 'en';
 };
 

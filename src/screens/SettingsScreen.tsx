@@ -15,7 +15,8 @@ import { ThemePreference, SupportedLanguage } from '../types';
 import { BUTTON_HIT_SLOP } from '../utils/accessibility';
 import { checkBiometricAvailability, validatePIN, hashPIN } from '../services/authentication';
 import { useTranslation } from 'react-i18next';
-import { supportedLanguages } from '../i18n';
+import { supportedLanguages, changeLanguage, getCurrentLanguage } from '../i18n';
+import i18n from '../i18n';
 
 type TabType = 'personalization' | 'general' | 'security';
 
@@ -28,7 +29,8 @@ const SettingsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('personalization');
   const [currency, setCurrency] = useState(settings.currency);
   const [income, setIncome] = useState(String(settings.monthlyIncome));
-  const currentLanguage = settings.language || 'en';
+  const [themePreference, setThemePreference] = useState<ThemePreference>(settings.themePreference || 'system');
+  const [language, setLanguage] = useState<SupportedLanguage>(settings.language || 'en');
   const [exportMonth, setExportMonth] = useState(getMonthKey());
   const [isExporting, setIsExporting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -42,8 +44,10 @@ const SettingsScreen: React.FC = () => {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricName, setBiometricName] = useState('');
   const [showPINSetup, setShowPINSetup] = useState(false);
+  const [newPIN, setNewPIN] = useState(''); // Store new PIN for saving
+  const [newPINConfirm, setNewPINConfirm] = useState(''); // Store new PIN confirmation for saving
+  const [shouldRemovePIN, setShouldRemovePIN] = useState(false); // Flag to remove PIN on save
   
-  const currentThemePreference: ThemePreference = settings.themePreference || 'system';
   const { error: settingsError } = useSettings();
 
   // Check biometric availability
@@ -56,23 +60,113 @@ const SettingsScreen: React.FC = () => {
     checkBiometric();
   }, []);
 
-  // Sync security settings with state
-  React.useEffect(() => {
-    setEnableBiometric(settings.enableBiometric || false);
-    setEnablePIN(settings.enablePIN || false);
-  }, [settings.enableBiometric, settings.enablePIN]);
+  // Track if language was manually selected by user
+  const [languageManuallySelected, setLanguageManuallySelected] = React.useState(false);
 
-  // Sync local state with settings when they change
+  // Sync local state with settings when they change (only on mount or external changes)
+  // Don't sync language if user has manually selected it
   React.useEffect(() => {
     setCurrency(settings.currency);
     setIncome(String(settings.monthlyIncome));
-  }, [settings.currency, settings.monthlyIncome]);
+    setThemePreference(settings.themePreference || 'system');
+    setEnableBiometric(settings.enableBiometric || false);
+    setEnablePIN(settings.enablePIN || false);
+    
+    // Only sync language if user hasn't manually selected it
+    if (!languageManuallySelected) {
+      setLanguage(settings.language || 'en');
+    }
+  }, [settings.currency, settings.monthlyIncome, settings.themePreference, settings.enableBiometric, settings.enablePIN, settings.language, languageManuallySelected]);
+
+  // Sync language state with i18n language changes only after save
+  React.useEffect(() => {
+    const updateLanguage = () => {
+      const currentLang = getCurrentLanguage();
+      // Only update if language was actually changed (after save) and matches settings
+      if (currentLang !== language && settings.language === currentLang) {
+        setLanguage(currentLang);
+        setLanguageManuallySelected(false); // Reset flag after save
+      }
+    };
+    
+    // Listen for language changes (only after save)
+    i18n.on('languageChanged', updateLanguage);
+    
+    return () => {
+      i18n.off('languageChanged', updateLanguage);
+    };
+  }, [language, settings.language]);
 
   const handleSave = async () => {
     try {
       setSaveError(null);
       const monthlyIncome = Number(income) || 0;
-      await updateSettings({ currency: currency || 'USD', monthlyIncome });
+      
+      // Prepare settings update object
+      const settingsUpdate: {
+        currency?: string;
+        monthlyIncome?: number;
+        themePreference?: ThemePreference;
+        language?: SupportedLanguage;
+        enableBiometric?: boolean;
+        enablePIN?: boolean;
+        pin?: string;
+      } = {
+        currency: currency || 'USD',
+        monthlyIncome,
+        themePreference,
+        language,
+        enableBiometric,
+      };
+
+      // Handle PIN settings
+      if (shouldRemovePIN) {
+        settingsUpdate.enablePIN = false;
+        settingsUpdate.pin = undefined;
+      } else if (enablePIN) {
+        if (newPIN && newPINConfirm && newPIN === newPINConfirm) {
+          // New PIN is being set
+          if (!validatePIN(newPIN)) {
+            Alert.alert(t('alerts.invalidPIN'), t('alerts.pinMustBeDigits'));
+            return;
+          }
+          settingsUpdate.enablePIN = true;
+          settingsUpdate.pin = hashPIN(newPIN);
+        } else if (settings.pin) {
+          // PIN is already set, just enable/disable
+          settingsUpdate.enablePIN = true;
+        } else {
+          // PIN is already set, just enable/disable
+          settingsUpdate.enablePIN = true;
+        }
+      } else {
+        settingsUpdate.enablePIN = false;
+      }
+
+      // Apply all settings
+      await updateSettings(settingsUpdate);
+      
+      // Apply theme change immediately for better UX
+      setColorScheme(themePreference);
+      
+      // Apply language change immediately for better UX
+      const currentI18nLanguage = getCurrentLanguage();
+      if (language && language !== currentI18nLanguage) {
+        console.log('[SettingsScreen] Changing language from', currentI18nLanguage, 'to', language);
+        changeLanguage(language);
+      }
+      
+      // Clear PIN setup state
+      setPin('');
+      setConfirmPin('');
+      setNewPIN('');
+      setNewPINConfirm('');
+      setShowPINSetup(false);
+      setShouldRemovePIN(false);
+      
+      // Reset language manual selection flag after save
+      setLanguageManuallySelected(false);
+      
       Alert.alert(t('alerts.success'), t('alerts.settingsSaved'));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save settings';
@@ -81,13 +175,13 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleThemeChange = async (preference: ThemePreference) => {
-    await updateSettings({ themePreference: preference });
-    setColorScheme(preference);
+  const handleThemeChange = (preference: ThemePreference) => {
+    setThemePreference(preference);
   };
 
-  const handleLanguageChange = async (language: SupportedLanguage) => {
-    await updateSettings({ language });
+  const handleLanguageChange = (lang: SupportedLanguage) => {
+    setLanguage(lang);
+    setLanguageManuallySelected(true); // Mark as manually selected
   };
 
   const handleExportPDF = async () => {
@@ -102,12 +196,22 @@ const SettingsScreen: React.FC = () => {
         return;
       }
 
+      // Always use current i18n language for PDF reports to ensure it matches the UI
+      // i18n language is always up-to-date, while settings.language might be stale
+      const currentI18nLang = getCurrentLanguage();
+      const reportLanguage: SupportedLanguage = (currentI18nLang === 'uk' || currentI18nLang === 'en') 
+        ? currentI18nLang 
+        : (settings.language || 'en') as SupportedLanguage;
+      
       const reportData: MonthlyReportData = {
         monthKey: exportMonth,
         transactions: monthTransactions,
         monthlyIncome: settings.monthlyIncome,
         currency: settings.currency,
+        language: reportLanguage,
       };
+      
+      console.log('[SettingsScreen] Generating PDF report with language:', reportLanguage, 'i18n.language:', currentI18nLang, 'settings.language:', settings.language);
 
       const html = generateReportHTML(reportData);
 
@@ -181,7 +285,7 @@ const SettingsScreen: React.FC = () => {
     ]);
   };
 
-  const handleBiometricToggle = async (enabled: boolean) => {
+  const handleBiometricToggle = (enabled: boolean) => {
     if (enabled && !biometricAvailable) {
       Alert.alert(
         t('settings.biometricAuth'),
@@ -190,20 +294,26 @@ const SettingsScreen: React.FC = () => {
       return;
     }
     setEnableBiometric(enabled);
-    await updateSettings({ enableBiometric: enabled });
   };
 
-  const handlePINToggle = async (enabled: boolean) => {
-    if (enabled && !settings.pin) {
+  const handlePINToggle = (enabled: boolean) => {
+    if (enabled && !settings.pin && !newPIN) {
       // Show PIN setup
       setShowPINSetup(true);
       return;
     }
     setEnablePIN(enabled);
-    await updateSettings({ enablePIN: enabled });
+    if (!enabled) {
+      // If disabling, clear PIN setup
+      setShowPINSetup(false);
+      setPin('');
+      setConfirmPin('');
+      setNewPIN('');
+      setNewPINConfirm('');
+    }
   };
 
-  const handlePINSetup = async () => {
+  const handlePINSetup = () => {
     if (!validatePIN(pin)) {
       Alert.alert(t('alerts.invalidPIN'), t('alerts.pinMustBeDigits'));
       return;
@@ -216,24 +326,17 @@ const SettingsScreen: React.FC = () => {
       return;
     }
 
-    const hashedPIN = hashPIN(pin);
-    console.log('[SettingsScreen] Setting PIN:', { 
-      pinLength: pin.length, 
-      hashedLength: hashedPIN.length,
-      pin: pin.replace(/./g, '*'), // Mask in logs
-    });
-    await updateSettings({
-      enablePIN: true,
-      pin: hashedPIN,
-    });
+    // Store PIN for saving later
+    setNewPIN(pin);
+    setNewPINConfirm(confirmPin);
     setPin('');
     setConfirmPin('');
     setShowPINSetup(false);
     setEnablePIN(true);
-    Alert.alert(t('alerts.success'), t('alerts.pinSetSuccess'));
+    Alert.alert(t('alerts.success'), t('alerts.pinWillBeSetOnSave'));
   };
 
-  const handlePINChange = async () => {
+  const handlePINChange = () => {
     if (!validatePIN(pin)) {
       Alert.alert(t('alerts.invalidPIN'), t('alerts.pinMustBeDigits'));
       return;
@@ -246,15 +349,16 @@ const SettingsScreen: React.FC = () => {
       return;
     }
 
-    const hashedPIN = hashPIN(pin);
-    await updateSettings({ pin: hashedPIN });
+    // Store new PIN for saving later
+    setNewPIN(pin);
+    setNewPINConfirm(confirmPin);
     setPin('');
     setConfirmPin('');
     setShowPINSetup(false);
-    Alert.alert(t('alerts.success'), t('alerts.pinChangedSuccess'));
+    Alert.alert(t('alerts.success'), t('alerts.pinWillBeChangedOnSave'));
   };
 
-  const handlePINRemove = async () => {
+  const handlePINRemove = () => {
     Alert.alert(
       t('settings.removePin'),
       t('alerts.removePINConfirm'),
@@ -263,13 +367,13 @@ const SettingsScreen: React.FC = () => {
         {
           text: t('settings.removePin'),
           style: 'destructive',
-          onPress: async () => {
-            await updateSettings({
-              enablePIN: false,
-              pin: undefined,
-            });
+          onPress: () => {
+            setShouldRemovePIN(true);
             setEnablePIN(false);
-            Alert.alert(t('alerts.success'), t('alerts.pinRemovedSuccess'));
+            setNewPIN('');
+            setNewPINConfirm('');
+            setShowPINSetup(false);
+            Alert.alert(t('alerts.success'), t('alerts.pinWillBeRemovedOnSave'));
           },
         },
       ]
@@ -277,20 +381,20 @@ const SettingsScreen: React.FC = () => {
   };
 
   const tabs: { id: TabType; label: string }[] = [
-    { id: 'personalization', label: 'Personalization' },
-    { id: 'security', label: 'Security' },
-    { id: 'general', label: 'General' },
+    { id: 'personalization', label: t('settings.personalization') },
+    { id: 'security', label: t('settings.security') },
+    { id: 'general', label: t('settings.general') },
   ];
 
   const renderPersonalizationTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.form}>
         <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: theme.spacing.xs }]}>
-          Theme
+          {t('settings.theme')}
         </Text>
         <View style={styles.themeOptions}>
           {(['light', 'dark', 'system'] as ThemePreference[]).map((option) => {
-            const isSelected = currentThemePreference === option;
+            const isSelected = themePreference === option;
             return (
               <TouchableOpacity
                 key={option}
@@ -322,7 +426,7 @@ const SettingsScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'System'}
+                  {option === 'light' ? t('settings.themeLight') : option === 'dark' ? t('settings.themeDark') : t('settings.themeSystem')}
                 </Text>
               </TouchableOpacity>
             );
@@ -334,7 +438,7 @@ const SettingsScreen: React.FC = () => {
         </Text>
         <View style={styles.themeOptions}>
           {supportedLanguages.map((lang) => {
-            const isSelected = currentLanguage === lang.code;
+            const isSelected = language === lang.code;
             return (
               <TouchableOpacity
                 key={lang.code}
@@ -373,7 +477,7 @@ const SettingsScreen: React.FC = () => {
           })}
         </View>
         
-        <Text style={[styles.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }]}>Currency</Text>
+        <Text style={[styles.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.lg }]}>{t('settings.currency')}</Text>
         <TextInput
           value={currency}
           onChangeText={setCurrency}
@@ -393,7 +497,7 @@ const SettingsScreen: React.FC = () => {
           accessibilityHint="Enter your currency code, for example USD, EUR, or GBP"
         />
         <Text style={[styles.label, { color: theme.colors.textSecondary, marginTop: theme.spacing.md }]}>
-          Monthly income
+          {t('settings.monthlyIncome')}
         </Text>
         <TextInput
           value={income}
@@ -446,7 +550,7 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            Save
+            {t('common.save')}
           </Text>
         </TouchableOpacity>
 
@@ -462,7 +566,7 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            Export Report
+            {t('settings.exportReport')}
           </Text>
           <Text
             style={[
@@ -473,7 +577,7 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            Select month to export
+            {t('settings.selectMonth')}
           </Text>
           <MonthPicker value={exportMonth} onChange={setExportMonth} />
           {exportError && (
@@ -517,7 +621,7 @@ const SettingsScreen: React.FC = () => {
                   },
                 ]}
               >
-                Export PDF Report
+                {t('settings.exportPDF')}
               </Text>
             )}
           </TouchableOpacity>
@@ -526,7 +630,14 @@ const SettingsScreen: React.FC = () => {
     </View>
   );
 
-  const renderSecurityTab = () => (
+  const renderSecurityTab = () => {
+    const hasSecurityChanges = 
+      enableBiometric !== (settings.enableBiometric || false) ||
+      enablePIN !== (settings.enablePIN || false) ||
+      newPIN !== '' ||
+      shouldRemovePIN;
+
+    return (
     <View style={styles.tabContent}>
       <View style={styles.form}>
         {/* Biometric Authentication */}
@@ -542,7 +653,7 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            Biometric Authentication
+            {t('settings.biometricAuth')}
           </Text>
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
@@ -615,7 +726,7 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            PIN Code
+            {t('settings.pinAuth')}
           </Text>
           <View style={styles.toggleRow}>
             <View style={styles.toggleLabel}>
@@ -629,7 +740,7 @@ const SettingsScreen: React.FC = () => {
                   },
                 ]}
               >
-                PIN Authentication
+                {t('settings.pinAuth')}
               </Text>
               <Text
                 style={[
@@ -641,7 +752,7 @@ const SettingsScreen: React.FC = () => {
                   },
                 ]}
               >
-                Use a PIN code to unlock the app
+                {t('settings.usePin')}
               </Text>
             </View>
             <TouchableOpacity
@@ -682,7 +793,7 @@ const SettingsScreen: React.FC = () => {
                   },
                 ]}
               >
-                {settings.pin ? 'Change PIN' : 'Set PIN'}
+                {settings.pin ? t('settings.changePin') : t('settings.setPin')}
               </Text>
               <TextInput
                 value={pin}
@@ -698,11 +809,11 @@ const SettingsScreen: React.FC = () => {
                     color: theme.colors.textPrimary,
                   },
                 ]}
-                placeholder="Enter PIN (4-6 digits)"
+                placeholder={t('settings.enterPin')}
                 placeholderTextColor={theme.colors.textSecondary}
                 accessible={true}
-                accessibilityLabel="PIN input"
-                accessibilityHint="Enter a 4 to 6 digit PIN code"
+                accessibilityLabel={t('settings.pinInput')}
+                accessibilityHint={t('settings.pinHint')}
               />
               <TextInput
                 value={confirmPin}
@@ -719,11 +830,11 @@ const SettingsScreen: React.FC = () => {
                     marginTop: theme.spacing.md,
                   },
                 ]}
-                placeholder="Confirm PIN"
+                placeholder={t('settings.confirmPin')}
                 placeholderTextColor={theme.colors.textSecondary}
                 accessible={true}
-                accessibilityLabel="Confirm PIN input"
-                accessibilityHint="Re-enter your PIN to confirm"
+                accessibilityLabel={t('settings.confirmPinInput')}
+                accessibilityHint={t('settings.confirmPinHint')}
               />
               <View style={styles.pinButtons}>
                 <TouchableOpacity
@@ -755,7 +866,7 @@ const SettingsScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -769,7 +880,7 @@ const SettingsScreen: React.FC = () => {
                     },
                   ]}
                   accessible={true}
-                  accessibilityLabel={settings.pin ? 'Change PIN' : 'Set PIN'}
+                  accessibilityLabel={settings.pin ? t('settings.changePin') : t('settings.setPin')}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: pin.length < 4 || pin !== confirmPin }}
                   hitSlop={BUTTON_HIT_SLOP}
@@ -784,7 +895,7 @@ const SettingsScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    {settings.pin ? 'Change' : 'Set'}
+                    {settings.pin ? t('settings.changePin') : t('settings.setPin')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -806,7 +917,7 @@ const SettingsScreen: React.FC = () => {
                   },
                 ]}
                 accessible={true}
-                accessibilityLabel="Change PIN"
+                accessibilityLabel={t('settings.changePin')}
                 accessibilityRole="button"
                 hitSlop={BUTTON_HIT_SLOP}
               >
@@ -819,7 +930,7 @@ const SettingsScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  Change PIN
+                  {t('settings.changePin')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -833,7 +944,7 @@ const SettingsScreen: React.FC = () => {
                   },
                 ]}
                 accessible={true}
-                accessibilityLabel="Remove PIN"
+                accessibilityLabel={t('settings.removePin')}
                 accessibilityRole="button"
                 hitSlop={BUTTON_HIT_SLOP}
               >
@@ -846,15 +957,57 @@ const SettingsScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  Remove PIN
+                  {t('settings.removePin')}
                 </Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
+
+        {/* Save Button for Security Tab */}
+        {hasSecurityChanges && (
+          <View style={{ marginTop: theme.spacing.xl }}>
+            {saveError && (
+              <ErrorState
+                message={saveError}
+                onRetry={handleSave}
+                retryLabel="Retry Save"
+                style={{ marginBottom: theme.spacing.md }}
+              />
+            )}
+            <TouchableOpacity
+              onPress={handleSave}
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: theme.colors.accent,
+                },
+              ]}
+              accessible={true}
+              accessibilityLabel="Save security settings"
+              accessibilityRole="button"
+              accessibilityHint="Double tap to save your security settings"
+              hitSlop={BUTTON_HIT_SLOP}
+            >
+              <Text
+                style={[
+                  styles.saveButtonText,
+                  {
+                    color: theme.colors.background,
+                    fontSize: theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.semibold,
+                  },
+                ]}
+              >
+                {t('common.save')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
-  );
+    );
+  };
 
   const renderGeneralTab = () => (
     <View style={styles.tabContent}>
@@ -868,9 +1021,9 @@ const SettingsScreen: React.FC = () => {
             },
           ]}
           accessible={true}
-          accessibilityLabel="Reset all data"
+          accessibilityLabel={t('settings.resetAllData')}
           accessibilityRole="button"
-          accessibilityHint="Double tap to reset all settings and transactions. This action cannot be undone."
+          accessibilityHint={t('settings.resetDescription')}
           hitSlop={BUTTON_HIT_SLOP}
         >
           <Text
@@ -883,7 +1036,7 @@ const SettingsScreen: React.FC = () => {
               },
             ]}
           >
-            Reset all data
+            {t('settings.resetAllData')}
           </Text>
         </TouchableOpacity>
         <Text
@@ -896,7 +1049,7 @@ const SettingsScreen: React.FC = () => {
             },
           ]}
         >
-          This will clear all settings and transactions. This action cannot be undone.
+          {t('settings.resetDescription')}
         </Text>
       </View>
     </View>
@@ -944,6 +1097,9 @@ const SettingsScreen: React.FC = () => {
                       : theme.typography.fontWeight.medium,
                 },
               ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.8}
             >
               {tab.label}
             </Text>

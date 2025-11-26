@@ -265,6 +265,7 @@
     "exportMonthlyReport": "Export Monthly Report",
     "resetAllData": "Reset all data?",
     "resetConfirm": "This will clear settings and transactions.",
+    "resetDescription": "This will clear all settings and transactions. This action cannot be undone.",
     "reset": "Reset",
     "allDataReset": "All data has been reset.",
     "resetError": "Failed to reset data. Please try again.",
@@ -276,6 +277,9 @@
     "pinSetSuccess": "PIN has been set successfully.",
     "pinChangedSuccess": "PIN has been changed successfully.",
     "pinRemovedSuccess": "PIN has been removed.",
+    "pinWillBeSetOnSave": "PIN will be set when you save settings.",
+    "pinWillBeChangedOnSave": "PIN will be changed when you save settings.",
+    "pinWillBeRemovedOnSave": "PIN will be removed when you save settings.",
     "removePINConfirm": "Are you sure you want to remove PIN authentication?",
     "transactionAdded": "{{type}} added successfully!",
     "transactionUpdated": "{{type}} updated successfully!",
@@ -344,6 +348,26 @@
       "fixed_loan": "Fixed Loan",
       "installment": "Installment"
     }
+  },
+  "pdfReport": {
+    "title": "Monthly Financial Report",
+    "totalIncome": "Total Income",
+    "totalExpenses": "Total Expenses",
+    "totalSaved": "Total Saved",
+    "remaining": "Remaining",
+    "budgetOverview": "Budget Overview",
+    "expenses": "Expenses",
+    "saved": "Saved",
+    "dailySpending": "Daily Spending",
+    "topExpenseCategories": "Top Expense Categories",
+    "transactionHistory": "Transaction History",
+    "date": "Date",
+    "type": "Type",
+    "category": "Category",
+    "amount": "Amount",
+    "ofTotalExpenses": "of total expenses",
+    "generatedOn": "Generated on",
+    "appName": "ExGo Budgeting App"
   }
 }
 

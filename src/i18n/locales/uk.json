@@ -30,7 +30,7 @@
     "summary": "Підсумок",
     "remaining": "Залишок",
     "spent": "Витрачено",
-    "saved": "Накопичено",
+    "saved": "Накоп.",
     "of": "З",
     "total": "всього",
     "overBudget": "Перевищення бюджету на",
@@ -104,7 +104,7 @@
   },
   "settings": {
     "title": "Налаштування",
-    "personalization": "Персоналізація",
+    "personalization": "Персонал.",
     "security": "Безпека",
     "general": "Загальні",
     "theme": "Тема",
@@ -265,6 +265,7 @@
     "exportMonthlyReport": "Експорт місячного звіту",
     "resetAllData": "Скинути всі дані?",
     "resetConfirm": "Це очистить налаштування та транзакції.",
+    "resetDescription": "Це очистить всі налаштування та транзакції. Цю дію неможливо скасувати.",
     "reset": "Скинути",
     "allDataReset": "Всі дані скинуто.",
     "resetError": "Не вдалося скинути дані. Будь ласка, спробуйте ще раз.",
@@ -276,6 +277,9 @@
     "pinSetSuccess": "PIN успішно встановлено.",
     "pinChangedSuccess": "PIN успішно змінено.",
     "pinRemovedSuccess": "PIN видалено.",
+    "pinWillBeSetOnSave": "PIN буде встановлено після збереження налаштувань.",
+    "pinWillBeChangedOnSave": "PIN буде змінено після збереження налаштувань.",
+    "pinWillBeRemovedOnSave": "PIN буде видалено після збереження налаштувань.",
     "removePINConfirm": "Ви впевнені, що хочете видалити PIN-аутентифікацію?",
     "transactionAdded": "{{type}} успішно додано!",
     "transactionUpdated": "{{type}} успішно оновлено!",
@@ -344,6 +348,26 @@
       "fixed_loan": "Фіксований кредит",
       "installment": "Розстрочка"
     }
+  },
+  "pdfReport": {
+    "title": "Місячний фінансовий звіт",
+    "totalIncome": "Загальний дохід",
+    "totalExpenses": "Загальні витрати",
+    "totalSaved": "Збережено",
+    "remaining": "Залишок",
+    "budgetOverview": "Огляд бюджету",
+    "expenses": "Витрати",
+    "saved": "Збережено",
+    "dailySpending": "Щоденні витрати",
+    "topExpenseCategories": "Топ категорій витрат",
+    "transactionHistory": "Історія транзакцій",
+    "date": "Дата",
+    "type": "Тип",
+    "category": "Категорія",
+    "amount": "Сума",
+    "ofTotalExpenses": "від загальних витрат",
+    "generatedOn": "Створено",
+    "appName": "Додаток ExGo для бюджету"
   }
 }
 
