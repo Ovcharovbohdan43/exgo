@@ -7,15 +7,6 @@ import { useSettings } from './SettingsProvider';
 import { calculateTotals } from '../modules/calculations';
 import { logError, addBreadcrumb } from '../services/sentry';
 
-// Conditional import for gamification - may not be available
-let useGamification: (() => { updateStreak: () => Promise<void>; addXP: (amount: number) => Promise<void>; checkBadgeProgress: () => Promise<void> }) | null = null;
-try {
-  const gamificationModule = require('./GamificationProvider');
-  useGamification = gamificationModule.useGamification;
-} catch (e) {
-  // GamificationProvider not available
-}
-
 export type TransactionsError = {
   message: string;
   code?: string;
@@ -436,17 +427,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
       await persist(next!);
       
-      // Trigger gamification updates
-      if (gamification) {
-        try {
-          await gamification.updateStreak();
-          await gamification.addXP(10); // XP_VALUES.TRANSACTION_LOGGED
-          await gamification.checkBadgeProgress();
-        } catch (e) {
-          // Gamification not available or error
-          console.warn('[TransactionsProvider] Gamification update failed:', e);
-        }
-      }
+      // Note: Gamification updates are handled by GamificationProvider via useEffect
+      // This avoids circular dependencies
       
       // Automatically switch to the month where transaction was added
       // This ensures user sees the transaction immediately after adding it

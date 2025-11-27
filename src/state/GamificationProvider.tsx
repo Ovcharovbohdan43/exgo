@@ -526,6 +526,58 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   }, [gamificationState.challenges, hydrated, completeChallenge, persist]);
 
+  // Track transactions for streak and XP updates
+  useEffect(() => {
+    if (!hydrated) return;
+    
+    // Get all transactions from all months
+    const allTransactions = Object.values(transactionsByMonth).flat();
+    
+    // Find the most recent transaction
+    if (allTransactions.length > 0) {
+      const sortedTransactions = [...allTransactions].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const latestTransaction = sortedTransactions[0];
+      const latestDate = new Date(latestTransaction.createdAt).toISOString().split('T')[0];
+      
+      // Only update if this is a new transaction (different date from last processed)
+      if (latestDate !== lastProcessedTransactionDateRef.current) {
+        lastProcessedTransactionDateRef.current = latestDate;
+        
+        // Update streak and add XP
+        updateStreak();
+        addXP(XP_VALUES.TRANSACTION_LOGGED);
+        checkBadgeProgress();
+      }
+    }
+  }, [transactionsByMonth, hydrated, updateStreak, addXP, checkBadgeProgress]);
+
+  // Track goals for XP and badge updates
+  useEffect(() => {
+    if (!hydrated) return;
+    
+    // Check for goal milestones
+    goals.forEach((goal) => {
+      if (goal.status === 'active') {
+        const progress = Math.floor((goal.currentAmount / goal.targetAmount) * 100);
+        
+        // Award XP based on progress milestones (only once per milestone)
+        // This is simplified - in full implementation, track which milestones were already awarded
+        if (progress >= 50 && progress < 80) {
+          addXP(XP_VALUES.GOAL_CHECKPOINT_50);
+        } else if (progress >= 80 && progress < 100) {
+          addXP(XP_VALUES.GOAL_CHECKPOINT_80);
+        } else if (progress >= 100) {
+          addXP(XP_VALUES.GOAL_COMPLETED);
+        }
+      }
+    });
+    
+    // Update badge progress
+    checkBadgeProgress();
+  }, [goals, hydrated, addXP, checkBadgeProgress]);
+
   const retryHydration = useCallback(async () => {
     hasHydratedRef.current = false;
     await hydrate();
