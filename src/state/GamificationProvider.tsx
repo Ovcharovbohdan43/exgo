@@ -309,6 +309,77 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Check and update badge progress
   const checkBadgeProgress = useCallback(async () => {
     setGamificationState((prev) => {
+      // Get all unique months from transactions
+      const allMonths = new Set<string>();
+      Object.keys(transactionsByMonth).forEach(month => {
+        if (transactionsByMonth[month] && transactionsByMonth[month].length > 0) {
+          allMonths.add(month);
+        }
+      });
+      
+      // Sort months chronologically
+      const sortedMonths = Array.from(allMonths).sort();
+      
+      // Calculate budget months (months where all mini budgets are under limit)
+      const budgetMonths: string[] = [];
+      sortedMonths.forEach(month => {
+        const monthBudgets = miniBudgets.filter(b => b.month === month && b.status === 'active');
+        if (monthBudgets.length === 0) {
+          // If no budgets for this month, skip
+          return;
+        }
+        
+        // Check if all budgets for this month are under limit (state is 'ok' or 'warning', not 'over')
+        const allUnderBudget = monthBudgets.every(budget => {
+          const stateKey = `${budget.id}-${month}`;
+          const state = miniBudgetStates[stateKey];
+          return state && (state.state === 'ok' || state.state === 'warning');
+        });
+        
+        if (allUnderBudget) {
+          budgetMonths.push(month);
+        }
+      });
+      
+      // Calculate consistency months (months where all mini budgets are strictly 'ok', not 'warning' or 'over')
+      const consistencyMonths: string[] = [];
+      sortedMonths.forEach(month => {
+        const monthBudgets = miniBudgets.filter(b => b.month === month && b.status === 'active');
+        if (monthBudgets.length === 0) {
+          return;
+        }
+        
+        // Check if all budgets for this month are strictly 'ok'
+        const allOk = monthBudgets.every(budget => {
+          const stateKey = `${budget.id}-${month}`;
+          const state = miniBudgetStates[stateKey];
+          return state && state.state === 'ok';
+        });
+        
+        if (allOk) {
+          consistencyMonths.push(month);
+        }
+      });
+      
+      // Calculate debt payment months (months where credit products had payments)
+      // Count months where there are credit transactions (payments made)
+      const debtPaymentMonths: string[] = [];
+      sortedMonths.forEach(month => {
+        const monthTransactions = transactionsByMonth[month] || [];
+        const creditTransactions = monthTransactions.filter(tx => tx.type === 'credit');
+        
+        // If there are credit transactions (payments) this month, count it
+        // This indicates the user is actively paying off debts
+        if (creditTransactions.length > 0) {
+          // Check if there are active credit products that could be paid
+          const activeProducts = creditProducts.filter(p => p.status === 'active' || p.status === 'overdue');
+          if (activeProducts.length > 0) {
+            // If there are active products and payments were made, count as on-time payment month
+            debtPaymentMonths.push(month);
+          }
+        }
+      });
+      
       const updatedBadges = prev.badges.map((badge) => {
         // Skip if already unlocked
         if (badge.unlockedAt !== null) {
@@ -320,7 +391,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         switch (badge.category) {
           case 'logging':
             // Use streak current for logging badges
-            newProgress = prev.streak.current;
+            newProgress = Math.min(prev.streak.current, badge.target);
             break;
             
           case 'goals':
@@ -331,28 +402,48 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               .sort((a, b) => b - a)[0] || 0;
             
             if (badge.id === 'goal_50') {
-              newProgress = goalProgress >= 50 ? 50 : goalProgress;
+              newProgress = goalProgress >= 50 ? 50 : Math.min(goalProgress, 50);
             } else if (badge.id === 'goal_80') {
-              newProgress = goalProgress >= 80 ? 80 : goalProgress;
+              newProgress = goalProgress >= 80 ? 80 : Math.min(goalProgress, 80);
             } else if (badge.id === 'goal_100') {
-              newProgress = goalProgress >= 100 ? 100 : goalProgress;
+              newProgress = goalProgress >= 100 ? 100 : Math.min(goalProgress, 100);
             }
             break;
             
           case 'budgets':
             // Count months under budget
-            // This is simplified - in real implementation, track monthly budget status
-            // For now, use a placeholder
+            const budgetCount = budgetMonths.length;
+            if (badge.id === 'budget_1') {
+              newProgress = Math.min(budgetCount, 1);
+            } else if (badge.id === 'budget_3') {
+              newProgress = Math.min(budgetCount, 3);
+            } else if (badge.id === 'budget_6') {
+              newProgress = Math.min(budgetCount, 6);
+            }
             break;
             
           case 'debts':
-            // Count on-time payments
-            // This is simplified - in real implementation, track payment history
+            // Count on-time payment months
+            const debtCount = debtPaymentMonths.length;
+            if (badge.id === 'debt_3') {
+              newProgress = Math.min(debtCount, 3);
+            } else if (badge.id === 'debt_6') {
+              newProgress = Math.min(debtCount, 6);
+            } else if (badge.id === 'debt_12') {
+              newProgress = Math.min(debtCount, 12);
+            }
             break;
             
           case 'consistency':
-            // Count months without overspending
-            // This is simplified - in real implementation, track monthly spending vs budget
+            // Count months without overspending (strictly 'ok' state)
+            const consistencyCount = consistencyMonths.length;
+            if (badge.id === 'consistency_1') {
+              newProgress = Math.min(consistencyCount, 1);
+            } else if (badge.id === 'consistency_3') {
+              newProgress = Math.min(consistencyCount, 3);
+            } else if (badge.id === 'consistency_6') {
+              newProgress = Math.min(consistencyCount, 6);
+            }
             break;
         }
         
@@ -371,7 +462,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       persist(updated).catch(console.error);
       return updated;
     });
-  }, [goals, persist]);
+  }, [goals, persist, transactionsByMonth, miniBudgets, miniBudgetStates, creditProducts]);
 
   // Unlock a badge
   const unlockBadge = useCallback(async (badgeId: string) => {
@@ -592,6 +683,50 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Update badge progress
     checkBadgeProgress();
   }, [goals, hydrated, addXP, checkBadgeProgress]);
+  
+  // Track mini budgets for badge updates
+  const miniBudgetsHash = useMemo(() => {
+    const budgetsData = miniBudgets.map(b => `${b.id}-${b.month}-${b.status}`).sort().join(',');
+    const statesData = Object.keys(miniBudgetStates).sort().join(',');
+    return `${budgetsData}|${statesData}`;
+  }, [miniBudgets, miniBudgetStates]);
+  
+  const lastMiniBudgetsHashRef = useRef<string>('');
+  
+  useEffect(() => {
+    if (!hydrated) return;
+    
+    // Only process if mini budgets actually changed
+    if (miniBudgetsHash === lastMiniBudgetsHashRef.current) {
+      return;
+    }
+    
+    lastMiniBudgetsHashRef.current = miniBudgetsHash;
+    
+    // Check badge progress when mini budgets change
+    checkBadgeProgress();
+  }, [miniBudgetsHash, hydrated, checkBadgeProgress]);
+  
+  // Track credit products for badge updates
+  const creditProductsHash = useMemo(() => {
+    return creditProducts.map(p => `${p.id}-${p.status}-${p.remainingBalance}`).sort().join(',');
+  }, [creditProducts]);
+  
+  const lastCreditProductsHashRef = useRef<string>('');
+  
+  useEffect(() => {
+    if (!hydrated) return;
+    
+    // Only process if credit products actually changed
+    if (creditProductsHash === lastCreditProductsHashRef.current) {
+      return;
+    }
+    
+    lastCreditProductsHashRef.current = creditProductsHash;
+    
+    // Check badge progress when credit products change
+    checkBadgeProgress();
+  }, [creditProductsHash, hydrated, checkBadgeProgress]);
 
   const retryHydration = useCallback(async () => {
     hasHydratedRef.current = false;
