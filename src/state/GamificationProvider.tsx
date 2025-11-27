@@ -109,7 +109,18 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { goals } = useGoals();
   const { miniBudgets, miniBudgetStates } = useMiniBudgets();
   const { creditProducts } = useCreditProducts();
-  const { settings } = useSettings();
+  
+  // Settings is optional - handle gracefully if SettingsProvider is not available
+  let settings: any = null;
+  if (useSettings) {
+    try {
+      const settingsData = useSettings();
+      settings = settingsData.settings;
+    } catch (e) {
+      // SettingsProvider not available - this is OK, we'll use defaults
+      console.warn('[GamificationProvider] SettingsProvider not available, using defaults');
+    }
+  }
   
   const [gamificationState, setGamificationState] = useState<GamificationState>(initializeGamificationState());
   const [hydrated, setHydrated] = useState(false);
