@@ -6,7 +6,6 @@ import { useTransactions } from './TransactionsProvider';
 import { useGoals } from './GoalsProvider';
 import { useMiniBudgets } from './MiniBudgetsProvider';
 import { useCreditProducts } from './CreditProductsProvider';
-import { useSettings } from './SettingsProvider';
 import { logError, addBreadcrumb } from '../services/sentry';
 import { getMonthKey } from '../utils/month';
 
@@ -110,17 +109,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { miniBudgets, miniBudgetStates } = useMiniBudgets();
   const { creditProducts } = useCreditProducts();
   
-  // Settings is optional - handle gracefully if SettingsProvider is not available
-  let settings: any = null;
-  if (useSettings) {
-    try {
-      const settingsData = useSettings();
-      settings = settingsData.settings;
-    } catch (e) {
-      // SettingsProvider not available - this is OK, we'll use defaults
-      console.warn('[GamificationProvider] SettingsProvider not available, using defaults');
-    }
-  }
+  // Settings is not needed in GamificationProvider - removed to avoid context errors
   
   const [gamificationState, setGamificationState] = useState<GamificationState>(initializeGamificationState());
   const [hydrated, setHydrated] = useState(false);
