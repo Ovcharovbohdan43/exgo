@@ -233,20 +233,26 @@ const AchievementsScreen: React.FC = () => {
                       fontWeight: theme.typography.fontWeight.medium,
                     },
                   ]}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
                   {badge.name}
                 </Text>
-                <Text
-                  style={[
-                    styles.badgeCategory,
-                    {
-                      color: theme.colors.textSecondary,
-                      fontSize: theme.typography.fontSize.xs,
-                    },
-                  ]}
-                >
-                  {getCategoryName(badge.category)}
-                </Text>
+                <View style={styles.badgeBottomSection}>
+                  <Text
+                    style={[
+                      styles.badgeCategory,
+                      {
+                        color: theme.colors.textSecondary,
+                        fontSize: theme.typography.fontSize.xs,
+                      },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {getCategoryName(badge.category)}
+                  </Text>
+                </View>
               </Card>
               </TouchableOpacity>
             ))}
@@ -312,33 +318,39 @@ const AchievementsScreen: React.FC = () => {
                       fontWeight: theme.typography.fontWeight.medium,
                     },
                   ]}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
                   {badge.name}
                 </Text>
-                <Text
-                  style={[
-                    styles.badgeCategory,
-                    {
-                      color: theme.colors.textSecondary,
-                      fontSize: theme.typography.fontSize.xs,
-                    },
-                  ]}
-                >
-                  {getCategoryName(badge.category)}
-                </Text>
-                {!isUnlocked && (
+                <View style={styles.badgeBottomSection}>
                   <Text
                     style={[
-                      styles.badgeProgress,
+                      styles.badgeCategory,
                       {
                         color: theme.colors.textSecondary,
                         fontSize: theme.typography.fontSize.xs,
                       },
                     ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
-                    {badge.progress} / {badge.target}
+                    {getCategoryName(badge.category)}
                   </Text>
-                )}
+                  {!isUnlocked && (
+                    <Text
+                      style={[
+                        styles.badgeProgress,
+                        {
+                          color: theme.colors.textSecondary,
+                          fontSize: theme.typography.fontSize.xs,
+                        },
+                      ]}
+                    >
+                      {badge.progress} / {badge.target}
+                    </Text>
+                  )}
+                </View>
               </Card>
               </TouchableOpacity>
             );
@@ -548,14 +560,24 @@ const styles = StyleSheet.create({
   badgeCard: {
     width: '30%',
     minWidth: 100,
+    minHeight: 120,
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   badgeTier: {
     marginBottom: 4,
+    textAlign: 'center',
   },
   badgeName: {
     textAlign: 'center',
     marginBottom: 4,
+    flexShrink: 1,
+    numberOfLines: 2,
+  },
+  badgeBottomSection: {
+    marginTop: 'auto',
+    width: '100%',
+    alignItems: 'center',
   },
   badgeCategory: {
     textAlign: 'center',
