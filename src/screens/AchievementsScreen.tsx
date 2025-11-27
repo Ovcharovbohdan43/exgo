@@ -73,7 +73,7 @@ const AchievementsScreen: React.FC = () => {
             },
           ]}
         >
-          {t('gamification.streakTitle', { defaultValue: 'Streak' })}
+          {t('achievements.streakTitle', { defaultValue: 'Streak' })}
         </Text>
         <Text
           style={[
