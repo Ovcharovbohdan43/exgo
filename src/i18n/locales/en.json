@@ -453,7 +453,9 @@
       "consistency_1": "Maintain perfect budget control for 1 month (all budgets strictly 'ok', no warnings) to unlock this badge.",
       "consistency_3": "Maintain perfect budget control for 3 months (all budgets strictly 'ok', no warnings) to unlock this badge.",
       "consistency_6": "Maintain perfect budget control for 6 months (all budgets strictly 'ok', no warnings) to unlock this badge."
-    }
+    },
+    "unlocked": "Unlocked",
+    "progress": "Progress: {{current}} / {{target}}"
   }
 }
 
