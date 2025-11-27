@@ -1,17 +1,18 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { useGamification } from '../state/GamificationProvider';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../components/layout';
 import { StreakChip } from '../components/StreakChip';
 import { LevelChip } from '../components/LevelChip';
-import { BadgeTier, BadgeCategory } from '../types';
+import { BadgeTier, BadgeCategory, Badge } from '../types';
 
 const AchievementsScreen: React.FC = () => {
   const theme = useThemeStyles();
   const { streak, badges, challenges, level } = useGamification();
   const { t } = useTranslation();
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
   const getTierColor = (tier: BadgeTier): string => {
     switch (tier) {
@@ -28,6 +29,20 @@ const AchievementsScreen: React.FC = () => {
 
   const getCategoryName = (category: BadgeCategory): string => {
     return t(`achievements.badgeCategory.${category}`, { defaultValue: category });
+  };
+
+  const getBadgeDescription = (badgeId: string): string => {
+    return t(`achievements.badgeDescriptions.${badgeId}`, { 
+      defaultValue: 'Complete the requirements to unlock this badge.' 
+    });
+  };
+
+  const handleBadgePress = (badge: Badge) => {
+    setSelectedBadge(badge);
+  };
+
+  const closeBadgeModal = () => {
+    setSelectedBadge(null);
   };
 
   const unlockedBadges = badges.filter((b) => b.unlockedAt !== null);
@@ -181,18 +196,22 @@ const AchievementsScreen: React.FC = () => {
           </Text>
           <View style={styles.badgesGrid}>
             {unlockedBadges.map((badge) => (
-              <Card
+              <TouchableOpacity
                 key={badge.id}
-                variant="elevated"
-                padding="md"
-                style={[
-                  styles.badgeCard,
-                  {
-                    borderColor: getTierColor(badge.tier),
-                    borderWidth: 2,
-                  },
-                ]}
+                onPress={() => handleBadgePress(badge)}
+                activeOpacity={0.7}
               >
+                <Card
+                  variant="elevated"
+                  padding="md"
+                  style={[
+                    styles.badgeCard,
+                    {
+                      borderColor: getTierColor(badge.tier),
+                      borderWidth: 2,
+                    },
+                  ]}
+                >
                 <Text
                   style={[
                     styles.badgeTier,
@@ -229,6 +248,7 @@ const AchievementsScreen: React.FC = () => {
                   {getCategoryName(badge.category)}
                 </Text>
               </Card>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -252,19 +272,23 @@ const AchievementsScreen: React.FC = () => {
           {badges.map((badge) => {
             const isUnlocked = badge.unlockedAt !== null;
             return (
-              <Card
+              <TouchableOpacity
                 key={badge.id}
-                variant="elevated"
-                padding="md"
-                style={[
-                  styles.badgeCard,
-                  {
-                    borderColor: isUnlocked ? getTierColor(badge.tier) : theme.colors.border,
-                    borderWidth: isUnlocked ? 2 : 1,
-                    opacity: isUnlocked ? 1 : 0.6,
-                  },
-                ]}
+                onPress={() => handleBadgePress(badge)}
+                activeOpacity={0.7}
               >
+                <Card
+                  variant="elevated"
+                  padding="md"
+                  style={[
+                    styles.badgeCard,
+                    {
+                      borderColor: isUnlocked ? getTierColor(badge.tier) : theme.colors.border,
+                      borderWidth: isUnlocked ? 2 : 1,
+                      opacity: isUnlocked ? 1 : 0.6,
+                    },
+                  ]}
+                >
                 {isUnlocked && (
                   <Text
                     style={[
@@ -316,10 +340,168 @@ const AchievementsScreen: React.FC = () => {
                   </Text>
                 )}
               </Card>
+              </TouchableOpacity>
             );
           })}
         </View>
       </View>
+
+      {/* Badge Description Modal */}
+      <Modal
+        visible={selectedBadge !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeBadgeModal}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeBadgeModal}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            {selectedBadge && (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      {
+                        color: theme.colors.textPrimary,
+                        fontSize: theme.typography.fontSize.xl,
+                        fontWeight: theme.typography.fontWeight.bold,
+                      },
+                    ]}
+                  >
+                    {selectedBadge.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modalTier,
+                      {
+                        color: getTierColor(selectedBadge.tier),
+                        fontSize: theme.typography.fontSize.sm,
+                        fontWeight: theme.typography.fontWeight.bold,
+                      },
+                    ]}
+                  >
+                    {selectedBadge.tier.toUpperCase()}
+                  </Text>
+                </View>
+                
+                <Text
+                  style={[
+                    styles.modalCategory,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.md,
+                      marginBottom: 16,
+                    },
+                  ]}
+                >
+                  {getCategoryName(selectedBadge.category)}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.modalDescription,
+                    {
+                      color: theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      marginBottom: 16,
+                    },
+                  ]}
+                >
+                  {getBadgeDescription(selectedBadge.id)}
+                </Text>
+
+                {selectedBadge.unlockedAt ? (
+                  <Text
+                    style={[
+                      styles.modalStatus,
+                      {
+                        color: theme.colors.success || '#4CAF50',
+                        fontSize: theme.typography.fontSize.sm,
+                        fontWeight: theme.typography.fontWeight.medium,
+                      },
+                    ]}
+                  >
+                    {t('achievements.unlocked', { defaultValue: 'Unlocked' })}
+                  </Text>
+                ) : (
+                  <View style={styles.modalProgress}>
+                    <Text
+                      style={[
+                        styles.modalProgressText,
+                        {
+                          color: theme.colors.textSecondary,
+                          fontSize: theme.typography.fontSize.sm,
+                        },
+                      ]}
+                    >
+                      {t('achievements.progress', { 
+                        defaultValue: 'Progress: {{current}} / {{target}}',
+                        current: selectedBadge.progress,
+                        target: selectedBadge.target,
+                      })}
+                    </Text>
+                    <View
+                      style={[
+                        styles.modalProgressBar,
+                        {
+                          backgroundColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.modalProgressFill,
+                          {
+                            backgroundColor: theme.colors.accent,
+                            width: `${Math.min((selectedBadge.progress / selectedBadge.target) * 100, 100)}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  onPress={closeBadgeModal}
+                  style={[
+                    styles.modalCloseButton,
+                    {
+                      backgroundColor: theme.colors.accent,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modalCloseButtonText,
+                      {
+                        color: '#FFFFFF',
+                        fontSize: theme.typography.fontSize.md,
+                        fontWeight: theme.typography.fontWeight.medium,
+                      },
+                    ]}
+                  >
+                    {t('common.close', { defaultValue: 'Close' })}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 };
@@ -381,6 +563,64 @@ const styles = StyleSheet.create({
   badgeProgress: {
     textAlign: 'center',
     marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+  },
+  modalHeader: {
+    marginBottom: 12,
+  },
+  modalTitle: {
+    marginBottom: 4,
+  },
+  modalTier: {
+    marginTop: 4,
+  },
+  modalCategory: {
+    marginBottom: 16,
+  },
+  modalDescription: {
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  modalStatus: {
+    marginBottom: 16,
+  },
+  modalProgress: {
+    marginBottom: 16,
+  },
+  modalProgressText: {
+    marginBottom: 8,
+  },
+  modalProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  modalProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  modalCloseButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modalCloseButtonText: {
+    fontWeight: '600',
   },
 });
 

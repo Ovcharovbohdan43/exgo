@@ -436,6 +436,23 @@
       "budgets": "Budgets",
       "debts": "Debts",
       "consistency": "Consistency"
+    },
+    "badgeDescriptions": {
+      "logging_7": "Log transactions for 7 consecutive days to unlock this badge.",
+      "logging_30": "Log transactions for 30 consecutive days to unlock this badge.",
+      "logging_100": "Log transactions for 100 consecutive days to unlock this badge.",
+      "goal_50": "Reach 50% progress on any goal to unlock this badge.",
+      "goal_80": "Reach 80% progress on any goal to unlock this badge.",
+      "goal_100": "Complete any goal (reach 100% progress) to unlock this badge.",
+      "budget_1": "Stay under budget for 1 month (all mini budgets must be within limits) to unlock this badge.",
+      "budget_3": "Stay under budget for 3 months (all mini budgets must be within limits) to unlock this badge.",
+      "budget_6": "Stay under budget for 6 months (all mini budgets must be within limits) to unlock this badge.",
+      "debt_3": "Make on-time payments for 3 months to unlock this badge.",
+      "debt_6": "Make on-time payments for 6 months to unlock this badge.",
+      "debt_12": "Make on-time payments for 12 months to unlock this badge.",
+      "consistency_1": "Maintain perfect budget control for 1 month (all budgets strictly 'ok', no warnings) to unlock this badge.",
+      "consistency_3": "Maintain perfect budget control for 3 months (all budgets strictly 'ok', no warnings) to unlock this badge.",
+      "consistency_6": "Maintain perfect budget control for 6 months (all budgets strictly 'ok', no warnings) to unlock this badge."
     }
   }
 }
