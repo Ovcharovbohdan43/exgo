@@ -46,11 +46,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       <CreditProductsProvider>
         <ConfettiProvider>
           <NotificationProvider>
-            <GamificationProvider>
-              <GoalsProviderWithCallbacks>
+            <GoalsProviderWithCallbacks>
+              <GamificationProvider>
                 {children}
-              </GoalsProviderWithCallbacks>
-            </GamificationProvider>
+              </GamificationProvider>
+            </GoalsProviderWithCallbacks>
           </NotificationProvider>
         </ConfettiProvider>
       </CreditProductsProvider>
