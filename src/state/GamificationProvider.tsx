@@ -613,7 +613,13 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     
     gamificationState.badges.forEach((badge) => {
       if (badge.unlockedAt === null && badge.progress >= badge.target) {
-        unlockBadge(badge.id);
+        console.log('[GamificationProvider] Badge ready to unlock:', badge.id, badge.name, {
+          progress: badge.progress,
+          target: badge.target,
+        });
+        unlockBadge(badge.id).catch(err => {
+          console.error('[GamificationProvider] Failed to unlock badge:', badge.id, err);
+        });
       }
     });
   }, [gamificationState.badges, hydrated, unlockBadge]);
