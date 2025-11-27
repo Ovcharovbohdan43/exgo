@@ -39,22 +39,6 @@ const AchievementsScreen: React.FC = () => {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.content}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text
-          style={[
-            styles.title,
-            {
-              color: theme.colors.textPrimary,
-              fontSize: theme.typography.fontSize.xl,
-              fontWeight: theme.typography.fontWeight.bold,
-            },
-          ]}
-        >
-          {t('achievements.title', { defaultValue: 'Achievements' })}
-        </Text>
-      </View>
-
       {/* Streak and Level */}
       <View style={styles.statsRow}>
         <StreakChip />
@@ -347,12 +331,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 32,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',
