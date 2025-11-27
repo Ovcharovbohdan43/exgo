@@ -527,8 +527,23 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [gamificationState.challenges, hydrated, completeChallenge, persist]);
 
   // Track transactions for streak and XP updates
+  // Use a hash of transaction IDs to detect changes without causing infinite loops
+  const transactionsHash = useMemo(() => {
+    const allTransactions = Object.values(transactionsByMonth).flat();
+    return allTransactions.map(tx => tx.id).sort().join(',');
+  }, [transactionsByMonth]);
+
+  const lastTransactionsHashRef = useRef<string>('');
+
   useEffect(() => {
     if (!hydrated) return;
+    
+    // Only process if transactions actually changed
+    if (transactionsHash === lastTransactionsHashRef.current) {
+      return;
+    }
+    
+    lastTransactionsHashRef.current = transactionsHash;
     
     // Get all transactions from all months
     const allTransactions = Object.values(transactionsByMonth).flat();
@@ -551,7 +566,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         checkBadgeProgress();
       }
     }
-  }, [transactionsByMonth, hydrated, updateStreak, addXP, checkBadgeProgress]);
+  }, [transactionsHash, hydrated, transactionsByMonth, updateStreak, addXP, checkBadgeProgress]);
 
   // Track goals for XP and badge updates
   useEffect(() => {
