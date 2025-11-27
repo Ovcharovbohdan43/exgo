@@ -108,7 +108,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
             },
           ]}
         >
-          Error: Missing transaction data
+          {t('addTransaction.errorMissingData', { defaultValue: 'Error: Missing transaction data' })}
         </Text>
       </View>
     );

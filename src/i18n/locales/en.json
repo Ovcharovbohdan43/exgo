@@ -109,7 +109,8 @@
     "goal": "Goal",
     "creditProduct": "Credit Product",
     "paymentMethod": "Payment Method",
-    "cash": "Cash / Debit Card"
+    "cash": "Cash / Debit Card",
+    "errorMissingData": "Error: Missing transaction data"
   },
   "goals": {
     "title": "Goals",

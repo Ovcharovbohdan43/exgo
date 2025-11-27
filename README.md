@@ -59,6 +59,16 @@ Minimal Expo/React Native budgeting app. See `ARCHITECTURE.md` for the blueprint
 - ✅ Automatic data updates in all components
 - ✅ Complete documentation
 
+### ✅ Goals Feature (Completed)
+- ✅ Financial goals tracking system
+- ✅ Create, edit, and delete goals with target amounts
+- ✅ Link saved transactions to goals
+- ✅ Automatic progress calculation and updates
+- ✅ Goal completion detection with confetti animation
+- ✅ Notification system integration for goal completion
+- ✅ Goals screen with active and completed sections
+- ✅ Complete documentation (GOALS_FEATURE_RU.md)
+
 ### 🚧 Next: Phase 6 - Details (Spending Breakdown)
 
 ### ✅ Error Tracking & Monitoring (Completed)

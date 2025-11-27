@@ -4,6 +4,64 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-27] - Feature: Goals (Financial Goals Tracking)
+
+#### Added
+- **Goals feature**: Complete implementation of financial goals tracking system
+  - Users can create financial goals with target amounts (e.g., "buy a car", "save for down payment")
+  - Goals can be linked to "saved" transactions to track progress automatically
+  - Progress bars and statistics display current progress towards each goal
+  - Automatic goal completion detection when `currentAmount >= targetAmount`
+  - Goal completion triggers confetti animation and notification
+  - Goals screen displays active and completed goals separately
+  - Completed goals are highlighted with green border
+
+- **Goal management**:
+  - Create, edit, and delete goals
+  - Optional emoji and note for each goal
+  - Automatic progress calculation based on linked saved transactions
+  - Manual goal completion option
+  - Goal selection step when adding saved transactions
+
+- **Integration with notifications**:
+  - Goal completion creates notification in notification system
+  - Notification includes congratulatory message from ExGo team
+  - Notifications are persistent and appear in Notifications screen
+
+- **Confetti animation**:
+  - Global confetti animation provider (`ConfettiProvider`)
+  - Animation triggers automatically when goal is completed
+  - Works from any screen in the app
+
+#### Technical Details
+- New `Goal` type with fields: `id`, `name`, `targetAmount`, `currentAmount`, `currency`, `emoji`, `status`, `note`, `createdAt`, `updatedAt`, `completedAt`
+- `GoalsProvider` manages goal state and automatic progress recalculation
+- Progress recalculation uses transaction hash tracking for efficiency
+- Functional state updates ensure accurate progress calculation
+- Integration with `TransactionsProvider` for automatic updates
+- New `goal_completed` notification type
+- Storage key: `goals` in AsyncStorage
+- Localization: All goal-related strings translated (en, uk)
+
+#### Files Changed
+- `src/types/index.ts` - Added `Goal`, `GoalStatus` types, updated `Transaction` with `goalId`
+- `src/state/GoalsProvider.tsx` - Complete goals state management implementation
+- `src/screens/GoalsScreen.tsx` - Goals display screen with active/completed sections
+- `src/components/AddGoalModal.tsx` - Goal creation/editing modal
+- `src/components/AddTransaction/GoalSelectionStep.tsx` - Goal selection step for saved transactions
+- `src/components/AddTransaction/AddTransactionModal.tsx` - Integration with goal selection
+- `src/components/AddTransaction/ConfirmStep.tsx` - Display goal in transaction confirmation
+- `src/components/ConfettiAnimation.tsx` - Confetti animation component
+- `src/state/ConfettiProvider.tsx` - Global confetti state management
+- `src/state/AppProvider.tsx` - Integration of GoalsProvider with callbacks
+- `src/state/NotificationProvider.tsx` - Added `createGoalCompletedNotification` method
+- `src/services/storage.ts` - Added goals storage functions
+- `src/i18n/locales/en.json` - Added goals translations
+- `src/i18n/locales/uk.json` - Added Ukrainian goals translations
+- `babel.config.js` - Added react-native-reanimated plugin
+- `docs/GOALS_FEATURE_RU.md` - Complete feature documentation
+- `docs/FEATURES_INDEX.md` - Updated with Goals feature entry
+
 ### [2025-01-XX] - Localization: PDF Reports
 
 #### Added
