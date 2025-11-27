@@ -9,6 +9,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import GoalsScreen from '../screens/GoalsScreen';
+import CalendarScreen from '../screens/CalendarScreen';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { SettingsIcon, BellIcon } from '../components/icons';
 import { useNotifications } from '../state/NotificationProvider';
@@ -16,11 +17,12 @@ import { useTranslation } from 'react-i18next';
 
 export type RootStackParamList = {
   Onboarding: undefined;
-  Home: undefined;
+  Home: { month?: string } | undefined;
   Details: undefined;
   Settings: undefined;
   Notifications: undefined;
   Goals: undefined;
+  Calendar: { initialMonth?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -174,6 +176,14 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         component={GoalsScreen}
         options={{
           title: t('goals.title', { defaultValue: 'Goals' }),
+        }}
+      />
+      <Stack.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{
+          title: t('calendar.title', { defaultValue: 'Select Month' }),
+          presentation: 'modal',
         }}
       />
     </Stack.Navigator>

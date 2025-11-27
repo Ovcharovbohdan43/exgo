@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Animated, PanResponder, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SectionHeader } from '../components/layout';
 import DonutChart from '../components/DonutChart';
 import FloatingActionButton from '../components/FloatingActionButton';
+import { CalendarIcon } from '../components/icons';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionsList } from '../components/TransactionsList';
 import { AddTransactionModal } from '../components/AddTransaction';
@@ -24,13 +25,35 @@ import { trackBudgetExceeded } from '../services/analytics';
 import { useTranslation } from 'react-i18next';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+type HomeRoute = RouteProp<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC = () => {
   const theme = useThemeStyles();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<HomeRoute>();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const { transactions, currentMonth, setCurrentMonth, deleteTransaction, hasMonthData } = useTransactions();
+  
+  // Track last processed month from route params to prevent infinite loops
+  const lastProcessedMonthRef = React.useRef<string | null>(null);
+  
+  // Handle month parameter from navigation
+  // Only process once per route param change, not on every currentMonth change
+  React.useEffect(() => {
+    const routeMonth = route.params?.month;
+    
+    // Only process if:
+    // 1. Route has a month parameter
+    // 2. It's different from current month
+    // 3. We haven't already processed this exact route param value
+    if (routeMonth && routeMonth !== currentMonth && routeMonth !== lastProcessedMonthRef.current) {
+      lastProcessedMonthRef.current = routeMonth;
+      setCurrentMonth(routeMonth).catch((err) => {
+        console.error('[HomeScreen] Error setting month from route params:', err);
+      });
+    }
+  }, [route.params?.month]); // Only depend on route.params?.month, not currentMonth or setCurrentMonth
   const totals = useMonthlyTotals(transactions, settings.monthlyIncome);
   const { t } = useTranslation();
   
@@ -323,6 +346,17 @@ const HomeScreen: React.FC = () => {
 
         {/* Donut Chart Section */}
         <View style={styles.chartSection}>
+          {/* Calendar Icon - positioned top right */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Calendar', { initialMonth: currentMonth })}
+            style={styles.calendarIconButton}
+            activeOpacity={0.7}
+            accessibilityLabel={t('calendar.openCalendar', { defaultValue: 'Open calendar to select month' })}
+            accessibilityRole="button"
+          >
+            <CalendarIcon size={24} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          
           <DonutChart
             animationTrigger={chartAnimationKey}
             spent={totals.expenses}
@@ -480,6 +514,14 @@ const styles = StyleSheet.create({
   chartSection: {
     alignItems: 'center',
     marginVertical: 8,
+    position: 'relative',
+  },
+  calendarIconButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+    zIndex: 10,
   },
   overBudgetWarning: {
     marginTop: 12,

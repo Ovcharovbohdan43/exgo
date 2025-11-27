@@ -47,6 +47,12 @@
     "resetOnboardingSuccess": "Data cleared! Please restart the app (close and reopen) to see onboarding.",
     "resetOnboardingError": "Failed to clear data. Check console for details."
   },
+  "calendar": {
+    "title": "Select Month",
+    "current": "Current",
+    "selected": "Selected",
+    "openCalendar": "Open calendar to select month"
+  },
   "details": {
     "title": "Spending Breakdown",
     "thisMonth": "This month",
