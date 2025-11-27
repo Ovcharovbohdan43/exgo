@@ -206,11 +206,22 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } finally {
       setLoading(false);
     }
-  }, [persist, gamificationState.streak.current, gamificationState.badges]);
+  }, [persist]);
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+  
+  // Check badge progress after hydration completes
+  useEffect(() => {
+    if (hydrated) {
+      // Small delay to ensure all other providers are hydrated
+      const timer = setTimeout(() => {
+        checkBadgeProgress();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [hydrated, checkBadgeProgress]);
 
   // Calculate level from XP
   const calculateLevel = useCallback((xp: number): number => {
@@ -309,11 +320,20 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Check and update badge progress
   const checkBadgeProgress = useCallback(async () => {
     setGamificationState((prev) => {
-      // Get all unique months from transactions
+      // Get all unique months from transactions AND budgets
       const allMonths = new Set<string>();
+      
+      // Add months from transactions
       Object.keys(transactionsByMonth).forEach(month => {
         if (transactionsByMonth[month] && transactionsByMonth[month].length > 0) {
           allMonths.add(month);
+        }
+      });
+      
+      // Add months from budgets (even if no transactions)
+      miniBudgets.forEach(budget => {
+        if (budget.month && budget.status === 'active') {
+          allMonths.add(budget.month);
         }
       });
       
@@ -396,17 +416,24 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             
           case 'goals':
             // Check goal progress percentages
-            const goalProgress = goals
+            // Find the maximum progress among all active goals
+            const goalProgresses = goals
               .filter(g => g.status === 'active')
-              .map(g => Math.floor((g.currentAmount / g.targetAmount) * 100))
-              .sort((a, b) => b - a)[0] || 0;
+              .map(g => Math.floor((g.currentAmount / g.targetAmount) * 100));
+            
+            const maxGoalProgress = goalProgresses.length > 0 
+              ? Math.max(...goalProgresses) 
+              : 0;
             
             if (badge.id === 'goal_50') {
-              newProgress = goalProgress >= 50 ? 50 : Math.min(goalProgress, 50);
+              // Unlock at 50%, but progress can't exceed 50
+              newProgress = Math.min(maxGoalProgress, 50);
             } else if (badge.id === 'goal_80') {
-              newProgress = goalProgress >= 80 ? 80 : Math.min(goalProgress, 80);
+              // Unlock at 80%, but progress can't exceed 80
+              newProgress = Math.min(maxGoalProgress, 80);
             } else if (badge.id === 'goal_100') {
-              newProgress = goalProgress >= 100 ? 100 : Math.min(goalProgress, 100);
+              // Unlock at 100%, progress can be 100
+              newProgress = Math.min(maxGoalProgress, 100);
             }
             break;
             
@@ -467,15 +494,23 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Unlock a badge
   const unlockBadge = useCallback(async (badgeId: string) => {
     setGamificationState((prev) => {
-      const updatedBadges = prev.badges.map((badge) => {
-        if (badge.id === badgeId && badge.unlockedAt === null) {
+      const badge = prev.badges.find(b => b.id === badgeId);
+      if (!badge || badge.unlockedAt !== null) {
+        // Badge not found or already unlocked
+        return prev;
+      }
+      
+      console.log('[GamificationProvider] Unlocking badge:', badgeId, badge.name);
+      
+      const updatedBadges = prev.badges.map((b) => {
+        if (b.id === badgeId) {
           return {
-            ...badge,
+            ...b,
             unlockedAt: new Date().toISOString(),
-            progress: badge.target,
+            progress: b.target,
           };
         }
-        return badge;
+        return b;
       });
       
       const updated = {
