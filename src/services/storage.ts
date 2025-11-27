@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct, Goal } from '../types';
+import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct, Goal, GamificationState } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
@@ -9,6 +9,7 @@ const MINI_BUDGETS_KEY = 'miniBudgets';
 const MINI_BUDGETS_STATE_KEY = 'miniBudgetMonthlyState';
 const CREDIT_PRODUCTS_KEY = 'creditProducts';
 const GOALS_KEY = 'goals';
+const GAMIFICATION_KEY = 'gamification';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -574,6 +575,72 @@ export const saveGoals = async (goals: Goal[]): Promise<void> => {
 };
 
 /**
+ * Validate GamificationState structure
+ */
+const validateGamificationState = (data: unknown): data is GamificationState => {
+  if (!data || typeof data !== 'object') return false;
+  const state = data as Partial<GamificationState>;
+  
+  // Validate streak
+  if (!state.streak || typeof state.streak !== 'object') return false;
+  if (typeof state.streak.current !== 'number') return false;
+  if (typeof state.streak.best !== 'number') return false;
+  if (typeof state.streak.skipTokens !== 'number') return false;
+  if (state.streak.lastDate !== null && typeof state.streak.lastDate !== 'string') return false;
+  
+  // Validate badges
+  if (!Array.isArray(state.badges)) return false;
+  // Basic badge validation (can be expanded)
+  
+  // Validate challenges
+  if (!Array.isArray(state.challenges)) return false;
+  
+  // Validate level
+  if (!state.level || typeof state.level !== 'object') return false;
+  if (typeof state.level.xp !== 'number') return false;
+  if (typeof state.level.level !== 'number') return false;
+  
+  return true;
+};
+
+/**
+ * Load gamification state from AsyncStorage
+ */
+export const loadGamification = async (): Promise<GamificationState | null> => {
+  try {
+    const value = await withRetry(() => AsyncStorage.getItem(GAMIFICATION_KEY));
+    if (!value) return null;
+    
+    const parsed = safeParse<GamificationState>(value);
+    if (parsed && validateGamificationState(parsed)) {
+      return parsed;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[Storage] Failed to load gamification:', error);
+    return null;
+  }
+};
+
+/**
+ * Save gamification state to AsyncStorage
+ */
+export const saveGamification = async (state: GamificationState): Promise<void> => {
+  try {
+    if (!validateGamificationState(state)) {
+      throw new Error('Invalid gamification state structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(GAMIFICATION_KEY, JSON.stringify(state)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save gamification:', error);
+    throw error;
+  }
+};
+
+/**
  * Reset all storage (clear all keys)
  */
 export const resetStorage = async (): Promise<void> => {
@@ -588,6 +655,7 @@ export const resetStorage = async (): Promise<void> => {
         MINI_BUDGETS_STATE_KEY,
         CREDIT_PRODUCTS_KEY,
         GOALS_KEY,
+        GAMIFICATION_KEY,
       ]),
     );
   } catch (error) {

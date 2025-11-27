@@ -6,6 +6,7 @@ import { MiniBudgetsProvider } from './MiniBudgetsProvider';
 import { CreditProductsProvider } from './CreditProductsProvider';
 import { GoalsProvider } from './GoalsProvider';
 import { ConfettiProvider, useConfetti } from './ConfettiProvider';
+import { GamificationProvider } from './GamificationProvider';
 import { Goal } from '../types';
 import { useTranslation } from 'react-i18next';
 
@@ -45,9 +46,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       <CreditProductsProvider>
         <ConfettiProvider>
           <NotificationProvider>
-            <GoalsProviderWithCallbacks>
-              {children}
-            </GoalsProviderWithCallbacks>
+            <GamificationProvider>
+              <GoalsProviderWithCallbacks>
+                {children}
+              </GoalsProviderWithCallbacks>
+            </GamificationProvider>
           </NotificationProvider>
         </ConfettiProvider>
       </CreditProductsProvider>

@@ -10,6 +10,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import GoalsScreen from '../screens/GoalsScreen';
 import CalendarScreen from '../screens/CalendarScreen';
+import GamificationHubScreen from '../screens/GamificationHubScreen';
 import { useThemeStyles } from '../theme/ThemeProvider';
 import { SettingsIcon, BellIcon } from '../components/icons';
 import { useNotifications } from '../state/NotificationProvider';
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   Notifications: undefined;
   Goals: undefined;
   Calendar: { initialMonth?: string } | undefined;
+  GamificationHub: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -184,6 +186,13 @@ const RootNavigator: React.FC<Props> = ({ isOnboarded }) => {
         options={{
           title: t('calendar.title', { defaultValue: 'Select Month' }),
           presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="GamificationHub"
+        component={GamificationHubScreen}
+        options={{
+          title: t('gamification.title', { defaultValue: 'Gamification' }),
         }}
       />
     </Stack.Navigator>

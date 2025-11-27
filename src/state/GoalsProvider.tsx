@@ -6,6 +6,15 @@ import { useSettings } from './SettingsProvider';
 import { useTransactions } from './TransactionsProvider';
 import { logError, addBreadcrumb } from '../services/sentry';
 
+// Conditional import for gamification
+let useGamification: (() => { addXP: (amount: number) => Promise<void>; checkBadgeProgress: () => Promise<void> }) | null = null;
+try {
+  const gamificationModule = require('./GamificationProvider');
+  useGamification = gamificationModule.useGamification;
+} catch (e) {
+  // GamificationProvider not available
+}
+
 export type GoalsError = {
   message: string;
   code?: string;
@@ -217,8 +226,30 @@ export const GoalsProvider: React.FC<{
     console.log('[GoalsProvider] Hash:', savedTransactionsHash.substring(0, 200));
     prevHashRef.current = savedTransactionsHash;
     
-    recalculateAllGoalsProgress().then((newlyCompleted) => {
+    recalculateAllGoalsProgress().then(async (newlyCompleted) => {
       console.log('[GoalsProvider] Recalculation complete, newly completed:', newlyCompleted.length);
+      
+      // Trigger gamification updates for completed goals
+      if (newlyCompleted.length > 0 && gamification) {
+        try {
+          for (const goal of newlyCompleted) {
+            const progress = Math.floor((goal.currentAmount / goal.targetAmount) * 100);
+            
+            // Award XP based on progress milestones
+            if (progress >= 50 && progress < 80) {
+              await gamification.addXP(50); // GOAL_CHECKPOINT_50
+            } else if (progress >= 80 && progress < 100) {
+              await gamification.addXP(75); // GOAL_CHECKPOINT_80
+            } else if (progress >= 100) {
+              await gamification.addXP(100); // GOAL_COMPLETED
+            }
+          }
+          await gamification.checkBadgeProgress();
+        } catch (e) {
+          console.warn('[GoalsProvider] Gamification update failed:', e);
+        }
+      }
+      
       // Trigger callbacks for newly completed goals
       if (newlyCompleted.length > 0 && onGoalCompleted) {
         newlyCompleted.forEach((goal) => {

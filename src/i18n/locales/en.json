@@ -419,6 +419,24 @@
     "ofTotalExpenses": "of total expenses",
     "generatedOn": "Generated on",
     "appName": "ExGo Budgeting App"
+  },
+  "gamification": {
+    "title": "Gamification",
+    "streak": "days",
+    "streakTitle": "Streak",
+    "currentStreak": "Current: {{days}} days",
+    "bestStreak": "Best: {{days}} days",
+    "skipTokens": "Skip tokens: {{count}}",
+    "activeChallenge": "Active Challenge",
+    "unlockedBadges": "Unlocked Badges",
+    "allBadges": "All Badges",
+    "badgeCategory": {
+      "logging": "Logging",
+      "goals": "Goals",
+      "budgets": "Budgets",
+      "debts": "Debts",
+      "consistency": "Consistency"
+    }
   }
 }
 

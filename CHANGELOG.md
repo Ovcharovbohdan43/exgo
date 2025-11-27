@@ -4,6 +4,131 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-27] - Feature: Gamification System (Version 2.0)
+
+#### Added
+- **Gamification System**: Complete implementation of gamification layer for ExGo v2.0
+  - Streaks: Track consecutive days with transactions logged
+  - Badges: 15 badges across 5 categories (logging, goals, budgets, debts, consistency)
+  - Challenges: Time-boxed challenges with progress tracking
+  - Levels & XP: Experience points system with level progression
+  - GamificationHub: Full screen for viewing all gamification elements
+  - Home ribbon: Streak and Level chips on HomeScreen
+
+- **Streak System**:
+  - Tracks consecutive days with at least one transaction
+  - Break forgiveness: 1 skip token per 14 days
+  - Best streak tracking
+  - Automatic streak updates on transaction logging
+
+- **Badge System**:
+  - 15 pre-defined badges across 5 categories
+  - Tiered system: Bronze, Silver, Gold
+  - Automatic progress tracking
+  - Automatic unlock when target reached
+  - Confetti animation on unlock (uses existing ConfettiProvider)
+
+- **Challenge System**:
+  - Support for time-boxed challenges
+  - One active challenge at a time
+  - Automatic progress tracking
+  - Automatic completion/expiration by date
+  - XP rewards on completion
+
+- **Level & XP System**:
+  - XP from meaningful actions (logging, goals, budgets, debts)
+  - Linear level progression (level * 100 XP)
+  - Level calculation and display
+  - Progress bar for next level
+
+- **UI Components**:
+  - `StreakChip`: Compact streak display with emoji
+  - `LevelChip`: Level display with progress bar
+  - `GamificationHubScreen`: Full gamification overview
+
+#### Technical Details
+- New types: `StreakState`, `Badge`, `Challenge`, `LevelState`, `GamificationState`
+- `GamificationProvider` manages all gamification state
+- Storage key: `gamification` in AsyncStorage
+- Integration with existing providers (Transactions, Goals, MiniBudgets, CreditProducts)
+- Conditional imports for backward compatibility
+- Full localization support (en/uk)
+
+#### Triggers
+- Transaction logged → Update streak, +10 XP, check badges
+- Goal funded → Check milestones (50/80/100%), award XP, update goal badges
+- Budget month closed → Update budget badges, +25 XP
+- Debt on-time payment → Update debt badges, +30 XP
+- Challenge completion → +150 XP
+
+#### Files Changed
+- `src/types/index.ts` - Added gamification types
+- `src/services/storage.ts` - Added gamification storage functions
+- `src/state/GamificationProvider.tsx` - Complete gamification provider
+- `src/state/AppProvider.tsx` - Integrated GamificationProvider
+- `src/state/TransactionsProvider.tsx` - Added gamification triggers
+- `src/state/GoalsProvider.tsx` - Added gamification triggers
+- `src/components/StreakChip.tsx` - Streak display component
+- `src/components/LevelChip.tsx` - Level display component
+- `src/screens/GamificationHubScreen.tsx` - Gamification hub screen
+- `src/screens/HomeScreen.tsx` - Added gamification ribbon
+- `src/navigation/RootNavigator.tsx` - Added GamificationHub screen
+- `src/i18n/locales/en.json` - Added gamification translations
+- `src/i18n/locales/uk.json` - Added Ukrainian gamification translations
+- `docs/GAMIFICATION_FEATURE_RU.md` - Complete feature documentation
+
+---
+
+## [Unreleased]
+
+### [2025-01-27] - Feature: Calendar (Month Selection)
+
+#### Added
+- **Calendar feature**: Complete implementation of month selection calendar
+  - Calendar icon on HomeScreen (top right of donut chart section)
+  - Modal calendar screen with month grid (12 months in 3 columns)
+  - Year selector with horizontal scroll (current year ± 2 years, 5 years total)
+  - Automatic navigation to HomeScreen with selected month data
+  - Current month highlighting with "Current" badge
+  - Selected month highlighting with "Selected" badge (when navigating from calendar)
+  - Full localization support (en/uk)
+
+- **Calendar components**:
+  - `CalendarIcon` - SVG icon component for calendar navigation
+  - `CalendarScreen` - Full calendar screen with month grid and year selector
+  - Integration with `HomeScreen` for month parameter handling
+
+- **Navigation improvements**:
+  - `Home` route now accepts optional `month` parameter
+  - `Calendar` route accepts optional `initialMonth` parameter
+  - Infinite loop prevention in `HomeScreen` month parameter handling using `useRef`
+
+#### Technical Details
+- New `CalendarIcon` component in `src/components/icons/CalendarIcon.tsx`
+- New `CalendarScreen` component in `src/screens/CalendarScreen.tsx`
+- Updated `RootStackParamList` to support month parameters
+- `HomeScreen` uses `useRef` to track last processed month (prevents infinite loops)
+- `useEffect` in `HomeScreen` only depends on `route.params?.month` (not `currentMonth`)
+- Localization keys: `calendar.title`, `calendar.current`, `calendar.selected`, `calendar.openCalendar`
+- Storage: No additional storage required (uses existing month-based transaction storage)
+
+#### Files Changed
+- `src/components/icons/CalendarIcon.tsx` - New calendar icon component
+- `src/components/icons/index.ts` - Export CalendarIcon
+- `src/screens/CalendarScreen.tsx` - New calendar screen component
+- `src/screens/HomeScreen.tsx` - Added calendar icon, month parameter handling
+- `src/navigation/RootNavigator.tsx` - Added Calendar screen, updated Home route type
+- `src/i18n/locales/en.json` - Added calendar localization keys
+- `src/i18n/locales/uk.json` - Added calendar localization keys
+
+#### Bug Fixes
+- Fixed infinite loop in `HomeScreen` when handling month parameter from navigation
+  - Removed `currentMonth` and `setCurrentMonth` from `useEffect` dependencies
+  - Added `useRef` to track last processed month
+  - Only trigger `setCurrentMonth` when `route.params?.month` actually changes
+
+---
+
 ### [2025-01-27] - Feature: Goals (Financial Goals Tracking)
 
 #### Added

@@ -7,6 +7,8 @@ import { SectionHeader } from '../components/layout';
 import DonutChart from '../components/DonutChart';
 import FloatingActionButton from '../components/FloatingActionButton';
 import { CalendarIcon } from '../components/icons';
+import { StreakChip } from '../components/StreakChip';
+import { LevelChip } from '../components/LevelChip';
 import { SummaryCard } from '../components/SummaryCard';
 import { TransactionsList } from '../components/TransactionsList';
 import { AddTransactionModal } from '../components/AddTransaction';
@@ -348,6 +350,7 @@ const HomeScreen: React.FC = () => {
         <View style={styles.chartSection}>
           {/* Calendar Icon - positioned top right */}
           <TouchableOpacity
+            testID="calendar-icon-button"
             onPress={() => navigation.navigate('Calendar', { initialMonth: currentMonth })}
             style={styles.calendarIconButton}
             activeOpacity={0.7}
@@ -386,6 +389,16 @@ const HomeScreen: React.FC = () => {
               {t('home.overBudget')} {formatCurrency(Math.abs(totals.remaining), settings.currency)}
             </Text>
           )}
+        </View>
+
+        {/* Gamification Ribbon */}
+        <View style={styles.gamificationRibbon}>
+          <StreakChip
+            onPress={() => navigation.navigate('GamificationHub')}
+          />
+          <LevelChip
+            onPress={() => navigation.navigate('GamificationHub')}
+          />
         </View>
 
         {/* Summary Stats Section */}

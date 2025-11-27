@@ -419,6 +419,24 @@
     "ofTotalExpenses": "від загальних витрат",
     "generatedOn": "Створено",
     "appName": "Додаток ExGo для бюджету"
+  },
+  "gamification": {
+    "title": "Гейміфікація",
+    "streak": "днів",
+    "streakTitle": "Серія",
+    "currentStreak": "Поточна: {{days}} днів",
+    "bestStreak": "Найкраща: {{days}} днів",
+    "skipTokens": "Токени пропуску: {{count}}",
+    "activeChallenge": "Активний виклик",
+    "unlockedBadges": "Розблоковані значки",
+    "allBadges": "Всі значки",
+    "badgeCategory": {
+      "logging": "Запис",
+      "goals": "Цілі",
+      "budgets": "Бюджети",
+      "debts": "Борги",
+      "consistency": "Послідовність"
+    }
   }
 }
 

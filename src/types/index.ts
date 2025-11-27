@@ -133,3 +133,54 @@ export interface Goal {
   completedAt?: string; // ISO string - when goal was completed
   note?: string; // Optional note
 }
+
+// Gamification Types
+export interface StreakState {
+  current: number; // Current consecutive days
+  best: number; // Best streak ever achieved
+  skipTokens: number; // Available skip tokens (1 per 14 days)
+  lastDate: string | null; // ISO string - last date with transaction logged
+}
+
+export type BadgeTier = 'bronze' | 'silver' | 'gold';
+export type BadgeCategory = 'logging' | 'goals' | 'budgets' | 'debts' | 'consistency';
+
+export interface Badge {
+  id: string;
+  name: string;
+  tier: BadgeTier;
+  category: BadgeCategory;
+  unlockedAt: string | null; // ISO string - when badge was unlocked, null if not unlocked
+  progress: number; // Current progress towards badge (0-100 or count)
+  target: number; // Target value to unlock badge
+  description?: string; // Optional description
+}
+
+export type ChallengeType = 'no_delivery' | 'groceries_reduction' | 'log_daily' | 'custom';
+export type ChallengeStatus = 'active' | 'completed' | 'failed' | 'expired';
+
+export interface Challenge {
+  id: string;
+  name: string;
+  type: ChallengeType;
+  start: string; // ISO string - challenge start date
+  end: string; // ISO string - challenge end date
+  status: ChallengeStatus;
+  progress: number; // Current progress (0-100)
+  target: number; // Target value to complete challenge
+  description?: string; // Optional description
+  rewardXP?: number; // XP reward on completion
+}
+
+export interface LevelState {
+  xp: number; // Current XP points
+  level: number; // Current level
+}
+
+export interface GamificationState {
+  streak: StreakState;
+  badges: Badge[];
+  challenges: Challenge[];
+  level: LevelState;
+  lastUpdated: string; // ISO string - last time gamification state was updated
+}
