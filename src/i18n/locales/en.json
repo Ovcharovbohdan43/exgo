@@ -420,8 +420,8 @@
     "generatedOn": "Generated on",
     "appName": "ExGo Budgeting App"
   },
-  "gamification": {
-    "title": "Gamification",
+  "achievements": {
+    "title": "Achievements",
     "streak": "days",
     "streakTitle": "Streak",
     "currentStreak": "Current: {{days}} days",

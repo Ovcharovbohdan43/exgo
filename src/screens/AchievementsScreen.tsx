@@ -8,7 +8,7 @@ import { StreakChip } from '../components/StreakChip';
 import { LevelChip } from '../components/LevelChip';
 import { BadgeTier, BadgeCategory } from '../types';
 
-const GamificationHubScreen: React.FC = () => {
+const AchievementsScreen: React.FC = () => {
   const theme = useThemeStyles();
   const { streak, badges, challenges, level } = useGamification();
   const { t } = useTranslation();
@@ -27,7 +27,7 @@ const GamificationHubScreen: React.FC = () => {
   };
 
   const getCategoryName = (category: BadgeCategory): string => {
-    return t(`gamification.badgeCategory.${category}`, { defaultValue: category });
+    return t(`achievements.badgeCategory.${category}`, { defaultValue: category });
   };
 
   const unlockedBadges = badges.filter((b) => b.unlockedAt !== null);
@@ -51,7 +51,7 @@ const GamificationHubScreen: React.FC = () => {
             },
           ]}
         >
-          {t('gamification.title', { defaultValue: 'Gamification' })}
+          {t('achievements.title', { defaultValue: 'Achievements' })}
         </Text>
       </View>
 
@@ -84,7 +84,7 @@ const GamificationHubScreen: React.FC = () => {
             },
           ]}
         >
-          {t('gamification.currentStreak', {
+          {t('achievements.currentStreak', {
             defaultValue: 'Current: {{days}} days',
             days: streak.current,
           })}
@@ -98,7 +98,7 @@ const GamificationHubScreen: React.FC = () => {
             },
           ]}
         >
-          {t('gamification.bestStreak', {
+          {t('achievements.bestStreak', {
             defaultValue: 'Best: {{days}} days',
             days: streak.best,
           })}
@@ -113,7 +113,7 @@ const GamificationHubScreen: React.FC = () => {
               },
             ]}
           >
-            {t('gamification.skipTokens', {
+            {t('achievements.skipTokens', {
               defaultValue: 'Skip tokens: {{count}}',
               count: streak.skipTokens,
             })}
@@ -134,7 +134,7 @@ const GamificationHubScreen: React.FC = () => {
               },
             ]}
           >
-            {t('gamification.activeChallenge', { defaultValue: 'Active Challenge' })}
+            {t('achievements.activeChallenge', { defaultValue: 'Active Challenge' })}
           </Text>
           <Text
             style={[
@@ -193,7 +193,7 @@ const GamificationHubScreen: React.FC = () => {
               },
             ]}
           >
-            {t('gamification.unlockedBadges', { defaultValue: 'Unlocked Badges' })} ({unlockedBadges.length})
+            {t('achievements.unlockedBadges', { defaultValue: 'Unlocked Badges' })} ({unlockedBadges.length})
           </Text>
           <View style={styles.badgesGrid}>
             {unlockedBadges.map((badge) => (
@@ -262,7 +262,7 @@ const GamificationHubScreen: React.FC = () => {
             },
           ]}
         >
-          {t('gamification.allBadges', { defaultValue: 'All Badges' })}
+            {t('achievements.allBadges', { defaultValue: 'All Badges' })}
         </Text>
         <View style={styles.badgesGrid}>
           {badges.map((badge) => {
@@ -406,5 +406,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GamificationHubScreen;
+export default AchievementsScreen;
 

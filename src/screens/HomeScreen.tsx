@@ -394,10 +394,10 @@ const HomeScreen: React.FC = () => {
         {/* Gamification Ribbon */}
         <View style={styles.gamificationRibbon}>
           <StreakChip
-            onPress={() => navigation.navigate('GamificationHub')}
+            onPress={() => navigation.navigate('Achievements')}
           />
           <LevelChip
-            onPress={() => navigation.navigate('GamificationHub')}
+            onPress={() => navigation.navigate('Achievements')}
           />
         </View>
 

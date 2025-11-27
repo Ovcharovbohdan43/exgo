@@ -43,7 +43,7 @@ export const StreakChip: React.FC<StreakChipProps> = ({ onPress }) => {
           },
         ]}
       >
-        {streak.current} {t('gamification.streak', { defaultValue: 'days' })}
+        {streak.current} {t('achievements.streak', { defaultValue: 'days' })}
       </Text>
     </View>
   );

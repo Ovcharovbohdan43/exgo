@@ -420,8 +420,8 @@
     "generatedOn": "Створено",
     "appName": "Додаток ExGo для бюджету"
   },
-  "gamification": {
-    "title": "Гейміфікація",
+  "achievements": {
+    "title": "Досягнення",
     "streak": "днів",
     "streakTitle": "Серія",
     "currentStreak": "Поточна: {{days}} днів",
