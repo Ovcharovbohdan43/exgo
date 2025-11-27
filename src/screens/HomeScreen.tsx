@@ -540,6 +540,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  gamificationRibbon: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 8,
+  },
   summarySection: {
     marginTop: 8,
   },
