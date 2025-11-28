@@ -60,66 +60,6 @@ const AchievementsScreen: React.FC = () => {
         <LevelChip />
       </View>
 
-      {/* Streak Details */}
-      <Card variant="elevated" padding="md" style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: theme.colors.textPrimary,
-              fontSize: theme.typography.fontSize.lg,
-              fontWeight: theme.typography.fontWeight.bold,
-            },
-          ]}
-        >
-          {t('achievements.streakTitle', { defaultValue: 'Streak' })}
-        </Text>
-        <Text
-          style={[
-            styles.sectionText,
-            {
-              color: theme.colors.textSecondary,
-              fontSize: theme.typography.fontSize.md,
-            },
-          ]}
-        >
-          {t('achievements.currentStreak', {
-            defaultValue: 'Current: {{days}} days',
-            days: streak.current,
-          })}
-        </Text>
-        <Text
-          style={[
-            styles.sectionText,
-            {
-              color: theme.colors.textSecondary,
-              fontSize: theme.typography.fontSize.md,
-            },
-          ]}
-        >
-          {t('achievements.bestStreak', {
-            defaultValue: 'Best: {{days}} days',
-            days: streak.best,
-          })}
-        </Text>
-        {streak.skipTokens > 0 && (
-          <Text
-            style={[
-              styles.sectionText,
-              {
-                color: theme.colors.accent,
-                fontSize: theme.typography.fontSize.md,
-              },
-            ]}
-          >
-            {t('achievements.skipTokens', {
-              defaultValue: 'Skip tokens: {{count}}',
-              count: streak.skipTokens,
-            })}
-          </Text>
-        )}
-      </Card>
-
       {/* Active Challenge */}
       {activeChallenge && (
         <Card variant="elevated" padding="md" style={styles.section}>
