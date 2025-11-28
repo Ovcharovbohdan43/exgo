@@ -12,6 +12,8 @@ import { getLocalizedCategory } from '../../utils/categoryLocalization';
 import { useCreditProducts } from '../../state/CreditProductsProvider';
 import { useGoals, GENERAL_SAVINGS_GOAL_ID } from '../../state/GoalsProvider';
 
+type TransactionScheduleType = 'standard' | 'scheduled';
+
 type ConfirmStepProps = {
   type: TransactionType;
   amount: number;
@@ -22,6 +24,9 @@ type ConfirmStepProps = {
   onPaidByCreditProductChange?: (productId: string | null) => void;
   currency: string;
   createdAt: string;
+  scheduleType?: TransactionScheduleType;
+  onScheduleTypeChange?: (scheduleType: TransactionScheduleType) => void;
+  onOpenRecurringModal?: () => void;
   style?: ViewStyle;
 };
 
@@ -39,6 +44,9 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   onPaidByCreditProductChange,
   currency,
   createdAt,
+  scheduleType = 'standard',
+  onScheduleTypeChange,
+  onOpenRecurringModal,
   style,
 }) => {
   const theme = useThemeStyles();
@@ -55,6 +63,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   // Get only credit cards (not loans or installments) for payment selection
   const creditCards = getActiveCreditProducts().filter((product) => product.creditType === 'credit_card');
   const [showCreditCardSelector, setShowCreditCardSelector] = useState(false);
+  const [showScheduleTypeSelector, setShowScheduleTypeSelector] = useState(false);
 
   // Debug: Log received props
   React.useEffect(() => {
@@ -143,7 +152,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            {t('addTransaction.type')}
+            {t('addTransaction.type', { defaultValue: 'Type' })}
           </Text>
           <Text
             style={[
@@ -172,7 +181,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            {t('addTransaction.amount')}
+            {t('addTransaction.amount', { defaultValue: 'Amount' })}
           </Text>
           <Text
             style={[
@@ -201,7 +210,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            {t('addTransaction.category')}
+            {t('addTransaction.category', { defaultValue: 'Category' })}
           </Text>
           <View style={styles.categoryValue}>
             <Text style={styles.categoryEmoji}>{getCategoryEmoji(category, customCategories)}</Text>
@@ -430,6 +439,131 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
           </>
         )}
 
+        {/* Schedule Type Selector (only for expense transactions) */}
+        {type === 'expense' && (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.row}>
+              <Text
+                style={[
+                  styles.label,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSize.sm,
+                    fontWeight: theme.typography.fontWeight.medium,
+                  },
+                ]}
+              >
+                {t('addTransaction.scheduleType', { defaultValue: 'Schedule Type' })}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowScheduleTypeSelector(!showScheduleTypeSelector)}
+                activeOpacity={0.7}
+                style={styles.paymentMethodSelector}
+              >
+                <Text
+                  style={[
+                    styles.value,
+                    {
+                      color: theme.colors.textPrimary,
+                      fontSize: theme.typography.fontSize.md,
+                      fontWeight: theme.typography.fontWeight.medium,
+                    },
+                  ]}
+                >
+                  {scheduleType === 'standard' 
+                    ? t('addTransaction.standard', { defaultValue: 'Standard' })
+                    : t('addTransaction.scheduled', { defaultValue: 'Scheduled' })}
+                </Text>
+                <Text style={{ color: theme.colors.textMuted, marginLeft: 8 }}>▼</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {showScheduleTypeSelector && (
+              <View style={styles.creditCardSelector}>
+                <ScrollView style={styles.creditCardList} nestedScrollEnabled>
+                  <TouchableOpacity
+                    onPress={() => {
+                      onScheduleTypeChange?.('standard');
+                      setShowScheduleTypeSelector(false);
+                    }}
+                    style={[
+                      styles.creditCardOption,
+                      {
+                        backgroundColor: scheduleType === 'standard' 
+                          ? theme.colors.accent + '15' 
+                          : theme.colors.surface,
+                        borderColor: scheduleType === 'standard' 
+                          ? theme.colors.accent 
+                          : theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.creditCardOptionText,
+                        {
+                          color: scheduleType === 'standard' 
+                            ? theme.colors.accent 
+                            : theme.colors.textPrimary,
+                          fontWeight: scheduleType === 'standard' 
+                            ? theme.typography.fontWeight.semibold 
+                            : theme.typography.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {t('addTransaction.standard', { defaultValue: 'Standard' })}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    onPress={() => {
+                      const wasStandard = scheduleType === 'standard';
+                      onScheduleTypeChange?.('scheduled');
+                      setShowScheduleTypeSelector(false);
+                      // Open recurring transaction modal when Scheduled is selected (only if it wasn't already scheduled)
+                      if (wasStandard && onOpenRecurringModal) {
+                        // Small delay to ensure state updates
+                        setTimeout(() => {
+                          console.log('[ConfirmStep] Opening recurring transaction modal');
+                          onOpenRecurringModal();
+                        }, 150);
+                      }
+                    }}
+                    style={[
+                      styles.creditCardOption,
+                      {
+                        backgroundColor: scheduleType === 'scheduled' 
+                          ? theme.colors.accent + '15' 
+                          : theme.colors.surface,
+                        borderColor: scheduleType === 'scheduled' 
+                          ? theme.colors.accent 
+                          : theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.creditCardOptionText,
+                        {
+                          color: scheduleType === 'scheduled' 
+                            ? theme.colors.accent 
+                            : theme.colors.textPrimary,
+                          fontWeight: scheduleType === 'scheduled' 
+                            ? theme.typography.fontWeight.semibold 
+                            : theme.typography.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {t('addTransaction.scheduled', { defaultValue: 'Scheduled' })}
+                    </Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            )}
+          </>
+        )}
+
         <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
 
         <View style={styles.row}>
@@ -443,7 +577,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
               },
             ]}
           >
-            {t('addTransaction.date')}
+            {t('addTransaction.date', { defaultValue: 'Date' })}
           </Text>
           <Text
             style={[

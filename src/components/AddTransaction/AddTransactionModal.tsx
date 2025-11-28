@@ -5,11 +5,13 @@ import { useSettings } from '../../state/SettingsProvider';
 import { useTransactions } from '../../state/TransactionsProvider';
 import { useCreditProducts } from '../../state/CreditProductsProvider';
 import { useGoals } from '../../state/GoalsProvider';
-import { TransactionType, Transaction } from '../../types';
+import { useRecurringTransactions } from '../../state/RecurringTransactionsProvider';
+import { TransactionType, Transaction, RecurringTransactionType, RecurringFrequency } from '../../types';
 import { AmountInputStep } from './AmountInputStep';
 import { CategorySelectionStep } from './CategorySelectionStep';
 import { GoalSelectionStep } from './GoalSelectionStep';
 import { ConfirmStep } from './ConfirmStep';
+import { RecurringTransactionModal } from './RecurringTransactionModal';
 import { parseMonthKey, getMonthKey } from '../../utils/month';
 import { trackTransactionCreated, trackTransactionUpdated } from '../../services/analytics';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +47,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const { addTransaction, updateTransaction } = useTransactions();
   const { applyPayment, addCharge } = useCreditProducts();
   const { getActiveGoals } = useGoals();
+  const { createRecurringTransaction } = useRecurringTransactions();
   const activeGoals = getActiveGoals();
   const isEditMode = !!transactionToEdit;
 
@@ -62,6 +65,24 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [creditProductId, setCreditProductId] = useState<string | null>(null);
   const [paidByCreditProductId, setPaidByCreditProductId] = useState<string | null>(null);
   const [goalId, setGoalId] = useState<string | null>(null);
+  const [scheduleType, setScheduleType] = useState<'standard' | 'scheduled'>('standard');
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  
+  // Debug: Log when showRecurringModal changes
+  React.useEffect(() => {
+    if (showRecurringModal) {
+      console.log('[AddTransactionModal] showRecurringModal is now true, type:', type);
+    }
+  }, [showRecurringModal, type]);
+  
+  const [recurringData, setRecurringData] = useState<{
+    name: string;
+    recurringType: RecurringTransactionType;
+    frequency: RecurringFrequency;
+    startDate: string;
+    endDate?: string;
+    note?: string;
+  } | null>(null);
   
   // Debug: Log when paidByCreditProductId changes
   React.useEffect(() => {
@@ -105,6 +126,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         setCreditProductId(null);
         setPaidByCreditProductId(null);
         setGoalId(null);
+        setScheduleType('standard');
+        setRecurringData(null);
+        setShowRecurringModal(false);
       }
       setError(null);
       setIsSaving(false);
@@ -208,6 +232,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
+    // For scheduled transactions, require recurring data
+    if (type === 'expense' && scheduleType === 'scheduled' && !recurringData) {
+      setError('Please configure the recurring transaction settings');
+      setShowRecurringModal(true);
+      return;
+    }
+
     // Saved transactions must be linked to a goal (including General Savings)
     // This check is now handled by the goal selection step, so we can allow saved transactions
     // The goalId will be either a specific goal ID or GENERAL_SAVINGS_GOAL_ID
@@ -260,53 +291,84 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           createdAt,
         });
         
-        await addTransaction({
-          type,
-          amount: numAmount,
-          category: finalCategory,
-          creditProductId: type === 'credit' ? creditProductId : undefined,
-          paidByCreditProductId: finalPaidByCreditProductId,
-          goalId: type === 'saved' ? goalId || undefined : undefined,
-          createdAt,
-        });
+        // Handle scheduled vs standard transactions
+        if (type === 'expense' && scheduleType === 'scheduled' && recurringData) {
+          // Create recurring transaction instead of regular transaction
+          await createRecurringTransaction({
+            name: recurringData.name,
+            type,
+            recurringType: recurringData.recurringType,
+            amount: numAmount,
+            category: finalCategory,
+            frequency: recurringData.frequency,
+            startDate: recurringData.startDate,
+            endDate: recurringData.endDate,
+            paidByCreditProductId: finalPaidByCreditProductId,
+            note: recurringData.note,
+          });
 
-        // Apply payment to credit product if this is a credit transaction
-        if (type === 'credit' && creditProductId) {
-          try {
-            await applyPayment(creditProductId, numAmount);
-          } catch (err) {
-            console.error('[AddTransactionModal] Failed to apply payment to credit product:', err);
-            // Don't fail the transaction if payment application fails
+          Alert.alert(
+            t('alerts.success'),
+            t('recurringTransactions.created', { defaultValue: 'Recurring transaction created successfully!' }),
+            [
+              {
+                text: t('alerts.ok'),
+                onPress: () => {
+                  onClose();
+                },
+              },
+            ]
+          );
+        } else {
+          // Standard transaction
+          await addTransaction({
+            type,
+            amount: numAmount,
+            category: finalCategory,
+            creditProductId: type === 'credit' ? creditProductId : undefined,
+            paidByCreditProductId: finalPaidByCreditProductId,
+            goalId: type === 'saved' ? goalId || undefined : undefined,
+            createdAt,
+          });
+
+          // Apply payment to credit product if this is a credit transaction
+          if (type === 'credit' && creditProductId) {
+            try {
+              await applyPayment(creditProductId, numAmount);
+            } catch (err) {
+              console.error('[AddTransactionModal] Failed to apply payment to credit product:', err);
+              // Don't fail the transaction if payment application fails
+            }
           }
-        }
 
-        // Add charge to credit card if expense was paid by credit card
-        if (type === 'expense' && paidByCreditProductId) {
-          try {
-            await addCharge(paidByCreditProductId, numAmount);
-          } catch (err) {
-            console.error('[AddTransactionModal] Failed to add charge to credit card:', err);
-            // Don't fail the transaction if charge addition fails
+          // Add charge to credit card if expense was paid by credit card
+          if (type === 'expense' && paidByCreditProductId) {
+            try {
+              await addCharge(paidByCreditProductId, numAmount);
+            } catch (err) {
+              console.error('[AddTransactionModal] Failed to add charge to credit card:', err);
+              // Don't fail the transaction if charge addition fails
+            }
           }
-        }
 
-        // Track transaction creation
-        trackTransactionCreated({
-          type,
-          amount: numAmount,
-          category,
-          month: getMonthKey(new Date(createdAt)),
-        });
+          // Track transaction creation
+          trackTransactionCreated({
+            type,
+            amount: numAmount,
+            category,
+            month: getMonthKey(new Date(createdAt)),
+          });
 
-        const typeLabel = t(`transactions.type.${type}`);
-        Alert.alert(t('alerts.success'), t('alerts.transactionAdded', { type: typeLabel }), [
-          {
-            text: t('alerts.ok'),
-            onPress: () => {
-              onClose();
+          const typeLabel = t(`transactions.type.${type}`);
+          Alert.alert(t('alerts.success'), t('alerts.transactionAdded', { type: typeLabel }), [
+            {
+              text: t('alerts.ok'),
+              onPress: () => {
+                onClose();
+              },
             },
-          },
-        ]);
+          ]);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save transaction');
@@ -560,6 +622,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           onPaidByCreditProductChange={setPaidByCreditProductId}
           currency={settings.currency}
           createdAt={new Date().toISOString()}
+          scheduleType={scheduleType}
+          onScheduleTypeChange={setScheduleType}
+          onOpenRecurringModal={() => {
+            console.log('[AddTransactionModal] onOpenRecurringModal called, setting showRecurringModal to true');
+            setShowRecurringModal(true);
+          }}
         />
       );
     }
@@ -594,6 +662,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   };
 
   return (
+    <>
     <Modal
       visible={visible}
       transparent
@@ -827,6 +896,26 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         </KeyboardAvoidingView>
       </View>
     </Modal>
+
+    {/* Recurring Transaction Modal */}
+    {/* Always render modal, but only show when type is expense and visible is true */}
+    <RecurringTransactionModal
+      visible={showRecurringModal && type === 'expense'}
+      onClose={() => {
+        console.log('[AddTransactionModal] RecurringTransactionModal onClose called');
+        setShowRecurringModal(false);
+      }}
+      onSave={(data) => {
+        console.log('[AddTransactionModal] RecurringTransactionModal onSave called with data:', data);
+        setRecurringData(data);
+        setShowRecurringModal(false);
+      }}
+      transactionType={type || 'expense'}
+      amount={parseFloat(amount) || 0}
+      category={category}
+      currency={settings.currency}
+    />
+    </>
   );
 };
 

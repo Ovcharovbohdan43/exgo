@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct, Goal, GamificationState } from '../types';
+import { Transaction, UserSettings, Notification, MiniBudget, MiniBudgetMonthlyState, CreditProduct, Goal, GamificationState, RecurringTransaction } from '../types';
 
 const SETTINGS_KEY = 'settings';
 const TRANSACTIONS_KEY = 'transactions';
@@ -10,6 +10,7 @@ const MINI_BUDGETS_STATE_KEY = 'miniBudgetMonthlyState';
 const CREDIT_PRODUCTS_KEY = 'creditProducts';
 const GOALS_KEY = 'goals';
 const GAMIFICATION_KEY = 'gamification';
+const RECURRING_TRANSACTIONS_KEY = 'recurringTransactions';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
@@ -91,6 +92,7 @@ const validateTransactions = (data: unknown): data is Transaction[] => {
     if (transaction.creditProductId !== undefined && transaction.creditProductId !== null && typeof transaction.creditProductId !== 'string') return false;
     if (transaction.paidByCreditProductId !== undefined && transaction.paidByCreditProductId !== null && typeof transaction.paidByCreditProductId !== 'string') return false;
     if (transaction.goalId !== undefined && transaction.goalId !== null && typeof transaction.goalId !== 'string') return false;
+    if (transaction.recurringTransactionId !== undefined && transaction.recurringTransactionId !== null && typeof transaction.recurringTransactionId !== 'string') return false;
     
     return true;
   });
@@ -641,6 +643,81 @@ export const saveGamification = async (state: GamificationState): Promise<void> 
 };
 
 /**
+ * Validate RecurringTransaction array
+ */
+const validateRecurringTransactions = (data: unknown): data is RecurringTransaction[] => {
+  if (!Array.isArray(data)) return false;
+  return data.every((rt) => {
+    if (typeof rt !== 'object' || rt === null) return false;
+    
+    const recurring = rt as RecurringTransaction;
+    
+    // Required fields
+    if (typeof recurring.id !== 'string') return false;
+    if (typeof recurring.name !== 'string') return false;
+    if (typeof recurring.type !== 'string') return false;
+    if (!['expense', 'income', 'saved', 'credit'].includes(recurring.type)) return false;
+    if (typeof recurring.recurringType !== 'string') return false;
+    if (!['subscription', 'rent', 'salary', 'bill', 'other'].includes(recurring.recurringType)) return false;
+    if (typeof recurring.amount !== 'number' || isNaN(recurring.amount)) return false;
+    if (typeof recurring.frequency !== 'string') return false;
+    if (!['daily', 'weekly', 'monthly', 'yearly'].includes(recurring.frequency)) return false;
+    if (typeof recurring.startDate !== 'string') return false;
+    if (typeof recurring.nextDueDate !== 'string') return false;
+    if (typeof recurring.status !== 'string') return false;
+    if (!['active', 'paused', 'completed'].includes(recurring.status)) return false;
+    if (typeof recurring.createdAt !== 'string') return false;
+    if (typeof recurring.updatedAt !== 'string') return false;
+    
+    // Optional fields
+    if (recurring.category !== undefined && recurring.category !== null && typeof recurring.category !== 'string') return false;
+    if (recurring.endDate !== undefined && recurring.endDate !== null && typeof recurring.endDate !== 'string') return false;
+    if (recurring.creditProductId !== undefined && recurring.creditProductId !== null && typeof recurring.creditProductId !== 'string') return false;
+    if (recurring.paidByCreditProductId !== undefined && recurring.paidByCreditProductId !== null && typeof recurring.paidByCreditProductId !== 'string') return false;
+    if (recurring.goalId !== undefined && recurring.goalId !== null && typeof recurring.goalId !== 'string') return false;
+    if (recurring.note !== undefined && recurring.note !== null && typeof recurring.note !== 'string') return false;
+    
+    return true;
+  });
+};
+
+/**
+ * Load recurring transactions from AsyncStorage
+ */
+export const loadRecurringTransactions = async (): Promise<RecurringTransaction[] | null> => {
+  try {
+    const raw = await withRetry(() => AsyncStorage.getItem(RECURRING_TRANSACTIONS_KEY));
+    const parsed = safeParse<RecurringTransaction[]>(raw);
+    
+    if (parsed && validateRecurringTransactions(parsed)) {
+      return parsed;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[Storage] Failed to load recurring transactions:', error);
+    return null;
+  }
+};
+
+/**
+ * Save recurring transactions to AsyncStorage
+ */
+export const saveRecurringTransactions = async (recurringTransactions: RecurringTransaction[]): Promise<void> => {
+  try {
+    if (!validateRecurringTransactions(recurringTransactions)) {
+      throw new Error('Invalid recurring transactions structure');
+    }
+    await withRetry(() =>
+      AsyncStorage.setItem(RECURRING_TRANSACTIONS_KEY, JSON.stringify(recurringTransactions)),
+    );
+  } catch (error) {
+    console.error('[Storage] Failed to save recurring transactions:', error);
+    throw error;
+  }
+};
+
+/**
  * Reset all storage (clear all keys)
  */
 export const resetStorage = async (): Promise<void> => {
@@ -656,6 +733,7 @@ export const resetStorage = async (): Promise<void> => {
         CREDIT_PRODUCTS_KEY,
         GOALS_KEY,
         GAMIFICATION_KEY,
+        RECURRING_TRANSACTIONS_KEY,
       ]),
     );
   } catch (error) {

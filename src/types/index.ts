@@ -9,6 +9,49 @@ export interface Transaction {
   paidByCreditProductId?: string; // Link to credit card used for payment (for expense transactions)
   goalId?: string; // Link to goal for saved transactions
   createdAt: string; // ISO string
+  recurringTransactionId?: string; // Link to recurring transaction if this was created from a recurring schedule
+}
+
+// Recurring Transactions Types
+export type RecurringTransactionType = 'subscription' | 'rent' | 'salary' | 'bill' | 'other';
+
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export type RecurringTransactionStatus = 'active' | 'paused' | 'completed';
+
+export interface RecurringTransaction {
+  id: string;
+  name: string; // User-defined name for the recurring transaction
+  type: TransactionType; // Type of transaction (expense, income, etc.)
+  recurringType: RecurringTransactionType; // Category: subscription, rent, salary, etc.
+  amount: number;
+  category?: string;
+  frequency: RecurringFrequency; // How often it repeats
+  startDate: string; // ISO string - when the recurring transaction starts
+  nextDueDate: string; // ISO string - next scheduled date
+  endDate?: string; // ISO string - optional end date
+  creditProductId?: string; // For credit transactions
+  paidByCreditProductId?: string; // For expense transactions paid by credit card
+  goalId?: string; // For saved transactions
+  status: RecurringTransactionStatus;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  note?: string; // Optional note
+}
+
+// Upcoming Transaction (virtual transaction shown 3 days before due date)
+export interface UpcomingTransaction {
+  id: string; // Generated ID for display purposes
+  recurringTransactionId: string; // Link to the recurring transaction
+  name: string; // Name from recurring transaction
+  type: TransactionType;
+  amount: number;
+  category?: string;
+  scheduledDate: string; // ISO string - when this transaction will occur
+  daysUntil: number; // Days until the transaction occurs
+  creditProductId?: string;
+  paidByCreditProductId?: string;
+  goalId?: string;
 }
 
 export type ThemePreference = 'light' | 'dark' | 'system';

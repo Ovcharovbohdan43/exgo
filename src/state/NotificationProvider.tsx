@@ -518,6 +518,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
     lastCheckedTransactionIdsRef.current.clear();
     lastCheckedMiniBudgetIdsRef.current.clear();
+    // Reset initialization flag for new month
+    initializedForMonthRef.current = null;
   }, [currentMonth]);
 
   // Track mini budget states changes to trigger notifications
@@ -531,6 +533,54 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       .map(([key, state]) => `${key}:${state.state}:${state.spentAmount.toFixed(2)}`)
       .join('|');
   }, [miniBudgetStates]);
+
+  // Initialize lastCheckedTransactionIdsRef based on existing notifications
+  // This prevents duplicate notifications on app reload
+  // Use a ref to track if we've already initialized for the current month
+  const initializedForMonthRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (!hydrated || !settings.monthlyIncome || settings.monthlyIncome <= 0) {
+      return;
+    }
+
+    // Only initialize once per month
+    if (initializedForMonthRef.current === currentMonth) {
+      return;
+    }
+
+    const currentMonthTransactions = transactionsByMonth[currentMonth] || [];
+    const expenseTransactions = currentMonthTransactions.filter((tx) => tx.type === 'expense');
+    const largeExpenseThreshold = settings.monthlyIncome * 0.2; // 20% of income
+
+    // Check if there's already a large expense notification for current month
+    const existingLargeExpenseNotification = notifications.find(
+      (n) => 
+        n.type === 'large_expense_spike' && 
+        n.monthKey === currentMonth
+    );
+
+    if (existingLargeExpenseNotification) {
+      // Mark all large expenses in current month as checked to prevent duplicate notifications
+      const largeExpenses = expenseTransactions.filter(
+        (tx) => tx.amount > largeExpenseThreshold
+      );
+      
+      largeExpenses.forEach((tx) => {
+        lastCheckedTransactionIdsRef.current.add(tx.id);
+      });
+
+      console.log('[NotificationProvider] Initialized checked transaction IDs from existing notifications:', {
+        currentMonth,
+        existingNotificationId: existingLargeExpenseNotification.id,
+        largeExpensesCount: largeExpenses.length,
+        checkedTransactionIds: Array.from(lastCheckedTransactionIdsRef.current),
+      });
+    }
+
+    // Mark this month as initialized
+    initializedForMonthRef.current = currentMonth;
+  }, [hydrated, notifications, transactionsByMonth, settings.monthlyIncome, currentMonth]);
 
   // Check triggers when transactions, month, or mini budget states change
   useEffect(() => {

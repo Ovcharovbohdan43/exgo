@@ -7,6 +7,7 @@ import { CreditProductsProvider } from './CreditProductsProvider';
 import { GoalsProvider } from './GoalsProvider';
 import { ConfettiProvider, useConfetti } from './ConfettiProvider';
 import { GamificationProvider } from './GamificationProvider';
+import { RecurringTransactionsProvider } from './RecurringTransactionsProvider';
 import { Goal } from '../types';
 import { useTranslation } from 'react-i18next';
 
@@ -42,18 +43,20 @@ const GoalsProviderWithCallbacks: React.FC<{ children: React.ReactNode }> = ({ c
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <TransactionsProvider>
-    <MiniBudgetsProvider>
-      <CreditProductsProvider>
-        <ConfettiProvider>
-          <NotificationProvider>
-            <GoalsProviderWithCallbacks>
-              <GamificationProvider>
-                {children}
-              </GamificationProvider>
-            </GoalsProviderWithCallbacks>
-          </NotificationProvider>
-        </ConfettiProvider>
-      </CreditProductsProvider>
-    </MiniBudgetsProvider>
+    <RecurringTransactionsProvider>
+      <MiniBudgetsProvider>
+        <CreditProductsProvider>
+          <ConfettiProvider>
+            <NotificationProvider>
+              <GoalsProviderWithCallbacks>
+                <GamificationProvider>
+                  {children}
+                </GamificationProvider>
+              </GoalsProviderWithCallbacks>
+            </NotificationProvider>
+          </ConfettiProvider>
+        </CreditProductsProvider>
+      </MiniBudgetsProvider>
+    </RecurringTransactionsProvider>
   </TransactionsProvider>
 );

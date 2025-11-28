@@ -456,6 +456,43 @@
     },
     "unlocked": "Unlocked",
     "progress": "Progress: {{current}} / {{target}}"
+  },
+  "recurringTransactions": {
+    "setupRecurring": "Setup Recurring Transaction",
+    "transactionSummary": "Transaction Summary",
+    "name": "Name",
+    "namePlaceholder": "e.g., Netflix Subscription",
+    "type": "Type",
+    "recurringType": {
+      "subscription": "Subscription",
+      "rent": "Rent",
+      "salary": "Salary",
+      "bill": "Bill",
+      "other": "Other"
+    },
+    "frequency": "Frequency",
+    "frequency.daily": "Daily",
+    "frequency.weekly": "Weekly",
+    "frequency.monthly": "Monthly",
+    "frequency.yearly": "Yearly",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "note": "Note",
+    "notePlaceholder": "Add a note...",
+    "errorNameRequired": "Please enter a name for this recurring transaction",
+    "errorStartDateRequired": "Please select a start date",
+    "errorEndDateBeforeStart": "End date must be after start date",
+    "created": "Recurring transaction created successfully!",
+    "upcoming": "Upcoming",
+    "scheduledFor": "Scheduled for",
+    "daysUntil": "{{days}} days until",
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
+  "addTransaction": {
+    "scheduleType": "Schedule Type",
+    "standard": "Standard",
+    "scheduled": "Scheduled"
   }
 }
 

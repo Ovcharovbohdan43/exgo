@@ -6,7 +6,8 @@ import { useThemeStyles } from '../theme/ThemeProvider';
 import { useSettings } from '../state/SettingsProvider';
 import { useCreditProducts } from '../state/CreditProductsProvider';
 import { useGoals } from '../state/GoalsProvider';
-import { Transaction } from '../types';
+import { useRecurringTransactions } from '../state/RecurringTransactionsProvider';
+import { Transaction, UpcomingTransaction } from '../types';
 import { formatCurrency } from '../utils/format';
 import { formatDate, getDateKey, formatDateWithDay } from '../utils/date';
 import { getCategoryEmoji } from '../utils/categoryEmojis';
@@ -354,6 +355,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 }) => {
   const theme = useThemeStyles();
   const { t } = useTranslation();
+  const { upcomingTransactions } = useRecurringTransactions();
 
   // Debug: Log received transactions
   React.useEffect(() => {
@@ -443,9 +445,28 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     return result;
   }, [transactions, i18n.language]);
 
-  // Flatten for FlatList
+  // Flatten for FlatList (include upcoming transactions at the top)
   const flatListData = React.useMemo(() => {
-    const items: Array<{ type: 'header' | 'transaction'; data: any }> = [];
+    const items: Array<{ type: 'header' | 'transaction' | 'upcoming'; data: any }> = [];
+    
+    // Add upcoming transactions section at the top if there are any
+    if (upcomingTransactions.length > 0) {
+      items.push({
+        type: 'header',
+        data: t('recurringTransactions.upcoming', { defaultValue: 'Upcoming' }),
+      });
+      upcomingTransactions.forEach((upcoming) => {
+        items.push({
+          type: 'upcoming',
+          data: upcoming,
+        });
+      });
+      // Add separator after upcoming section
+      items.push({
+        type: 'header',
+        data: t('transactions.recent', { defaultValue: 'Recent Transactions' }),
+      });
+    }
     
     for (const group of groupedTransactions) {
       items.push({ type: 'header', data: group.dateLabel });
@@ -498,14 +519,27 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     <View style={style}>
       <FlatList
         data={flatListData}
-        keyExtractor={(item, index) => 
-          item.type === 'header' 
-            ? `header-${item.data}` 
-            : `transaction-${item.data.id}-${index}`
-        }
+        keyExtractor={(item, index) => {
+          if (item.type === 'header') {
+            return `header-${item.data}`;
+          }
+          if (item.type === 'upcoming') {
+            return `upcoming-${item.data.id}-${index}`;
+          }
+          return `transaction-${item.data.id}-${index}`;
+        }}
         renderItem={({ item }) => {
           if (item.type === 'header') {
             return <DateHeader dateLabel={item.data} theme={theme} />;
+          }
+          if (item.type === 'upcoming') {
+            return (
+              <UpcomingTransactionItem
+                upcomingTransaction={item.data}
+                currency={currency}
+                theme={theme}
+              />
+            );
           }
           return (
             <TransactionItem 

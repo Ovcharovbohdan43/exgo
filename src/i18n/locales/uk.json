@@ -456,6 +456,43 @@
     },
     "unlocked": "Розблоковано",
     "progress": "Прогрес: {{current}} / {{target}}"
+  },
+  "recurringTransactions": {
+    "setupRecurring": "Налаштування повторюваної транзакції",
+    "transactionSummary": "Підсумок транзакції",
+    "name": "Назва",
+    "namePlaceholder": "наприклад, Підписка Netflix",
+    "type": "Тип",
+    "recurringType": {
+      "subscription": "Підписка",
+      "rent": "Оренда",
+      "salary": "Зарплата",
+      "bill": "Рахунок",
+      "other": "Інше"
+    },
+    "frequency": "Частота",
+    "frequency.daily": "Щодня",
+    "frequency.weekly": "Щотижня",
+    "frequency.monthly": "Щомісяця",
+    "frequency.yearly": "Щороку",
+    "startDate": "Дата початку",
+    "endDate": "Дата закінчення",
+    "note": "Примітка",
+    "notePlaceholder": "Додати примітку...",
+    "errorNameRequired": "Будь ласка, введіть назву для цієї повторюваної транзакції",
+    "errorStartDateRequired": "Будь ласка, виберіть дату початку",
+    "errorEndDateBeforeStart": "Дата закінчення повинна бути після дати початку",
+    "created": "Повторювану транзакцію успішно створено!",
+    "upcoming": "Майбутні",
+    "scheduledFor": "Заплановано на",
+    "daysUntil": "{{days}} днів до",
+    "today": "Сьогодні",
+    "tomorrow": "Завтра"
+  },
+  "addTransaction": {
+    "scheduleType": "Тип розкладу",
+    "standard": "Стандартна",
+    "scheduled": "Запланована"
   }
 }
 

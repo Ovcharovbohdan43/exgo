@@ -122,8 +122,29 @@ export const GoalsProvider: React.FC<{
       console.log('[GoalsProvider] Loaded from storage:', { goalsCount: stored.length });
       
       // Recalculate current amounts for all goals
+      // IMPORTANT: During initial hydration, we don't trigger completion callbacks
+      // because goals might have been completed in previous sessions
+      // Callbacks will only be triggered when goals are actually newly completed during the session
       const recalculated = stored.map((goal) => {
         const currentAmount = calculateGoalCurrentAmount(goal.id, transactionsByMonth);
+        
+        // If goal was already completed before (has completedAt), preserve its status and completedAt
+        // This prevents goals from being marked as "newly completed" during hydration
+        // CRITICAL: Check completedAt FIRST, before any status updates
+        if (goal.completedAt) {
+          // Goal was already completed in a previous session - preserve completedAt
+          // Update currentAmount but keep status as completed and preserve original completion date
+          console.log(`[GoalsProvider] Preserving completedAt for goal ${goal.name} (was completed before)`);
+          return {
+            ...goal,
+            currentAmount,
+            status: 'completed' as GoalStatus,
+            completedAt: goal.completedAt, // Preserve original completion date
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        
+        // For active goals (no completedAt), update status normally
         const updatedGoal = { ...goal, currentAmount };
         return updateGoalStatus(updatedGoal);
       });
@@ -269,19 +290,64 @@ export const GoalsProvider: React.FC<{
 
         console.log('[GoalsProvider] Recalculating all goals progress, goals count:', currentGoals.length);
         
-        // Track which goals were just completed
+        // Track which goals were just completed (in current state)
         const previouslyCompleted = new Set(currentGoals.filter(g => g.status === 'completed').map(g => g.id));
+        
+        // Track which goals were already completed before (have completedAt date)
+        // This prevents triggering notifications for goals that were completed in previous sessions
+        const alreadyCompletedBefore = new Set(
+          currentGoals
+            .filter(g => g.completedAt) // Check completedAt, not status (status might change during recalculation)
+            .map(g => g.id)
+        );
 
         const recalculated = currentGoals.map((goal) => {
           const currentAmount = calculateGoalCurrentAmount(goal.id, transactionsByMonth);
-          console.log(`[GoalsProvider] Goal ${goal.name}: currentAmount=${currentAmount}, targetAmount=${goal.targetAmount}, previous=${goal.currentAmount}`);
+          console.log(`[GoalsProvider] Goal ${goal.name}: currentAmount=${currentAmount}, targetAmount=${goal.targetAmount}, previous=${goal.currentAmount}, hasCompletedAt=${!!goal.completedAt}`);
+          
+          // If goal was already completed before (has completedAt), preserve its status and completedAt
+          // This prevents goals from being marked as "newly completed" during recalculation
+          if (goal.completedAt) {
+            // Goal was already completed - preserve completedAt even if currentAmount changed
+            return {
+              ...goal,
+              currentAmount,
+              status: 'completed' as GoalStatus,
+              completedAt: goal.completedAt, // Preserve original completion date
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          
+          // For active goals (or goals without completedAt), update status normally
           const updatedGoal = { ...goal, currentAmount };
           return updateGoalStatus(updatedGoal);
         });
 
         // Find newly completed goals
+        // Only consider goals that:
+        // 1. Are now completed (status === 'completed')
+        // 2. Were not completed before this recalculation (!previouslyCompleted.has)
+        // 3. Were not already completed in a previous session (!alreadyCompletedBefore.has)
         const newlyCompleted = recalculated.filter(
-          (goal) => goal.status === 'completed' && !previouslyCompleted.has(goal.id)
+          (goal) => {
+            const isCompleted = goal.status === 'completed';
+            const wasNotCompletedBefore = !previouslyCompleted.has(goal.id);
+            const wasNotCompletedInPreviousSession = !alreadyCompletedBefore.has(goal.id);
+            
+            const isNewlyCompleted = isCompleted && wasNotCompletedBefore && wasNotCompletedInPreviousSession;
+            
+            if (isCompleted) {
+              console.log(`[GoalsProvider] Goal ${goal.name} completion check:`, {
+                isCompleted,
+                wasNotCompletedBefore,
+                wasNotCompletedInPreviousSession,
+                hasCompletedAt: !!goal.completedAt,
+                isNewlyCompleted,
+              });
+            }
+            
+            return isNewlyCompleted;
+          }
         );
 
         // Check if any goals actually changed

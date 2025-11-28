@@ -4,6 +4,31 @@ All notable changes to the ExGo project will be documented in this file.
 
 ## [Unreleased]
 
+### [2025-01-27] - Feature: Recurring Transactions
+
+#### Added
+- **Recurring Transactions System**: Система повторяющихся платежей
+  - Возможность создавать повторяющиеся транзакции при добавлении расхода
+  - Выбор типа расписания (Standard/Scheduled) на этапе подтверждения транзакции
+  - Модальное окно для настройки повторяющейся транзакции:
+    - Название транзакции
+    - Тип повторения (подписка, аренда, зарплата, счет, другое)
+    - Частота (ежедневно, еженедельно, ежемесячно, ежегодно)
+    - Дата начала и окончания (опционально)
+    - Примечание (опционально)
+  - Отображение предстоящих транзакций за 3 дня до платежа (полупрозрачные карточки)
+  - Автоматическое создание транзакций по расписанию при запуске приложения
+  - Полная локализация на английский и украинский языки
+  - Документация: `docs/RECURRING_TRANSACTIONS_FEATURE_RU.md`
+
+#### Technical Details
+- New types: `RecurringTransaction`, `RecurringTransactionType`, `RecurringFrequency`, `RecurringTransactionStatus`, `UpcomingTransaction`
+- New provider: `RecurringTransactionsProvider` for state management
+- New components: `RecurringTransactionModal`, `UpcomingTransactionItem`
+- Updated components: `ConfirmStep`, `AddTransactionModal`, `TransactionsList`
+- Storage: `RECURRING_TRANSACTIONS_KEY` in AsyncStorage
+- Automatic processing: Daily check for due recurring transactions
+
 ### [2025-01-27] - Feature: Gamification System (Version 2.0)
 
 #### Added
