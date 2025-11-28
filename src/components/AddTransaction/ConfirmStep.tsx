@@ -10,7 +10,7 @@ import { getCategoryEmoji } from '../../utils/categoryEmojis';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../../utils/categoryLocalization';
 import { useCreditProducts } from '../../state/CreditProductsProvider';
-import { useGoals } from '../../state/GoalsProvider';
+import { useGoals, GENERAL_SAVINGS_GOAL_ID } from '../../state/GoalsProvider';
 
 type ConfirmStepProps = {
   type: TransactionType;

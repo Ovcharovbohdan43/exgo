@@ -6,6 +6,9 @@ import { useSettings } from './SettingsProvider';
 import { useTransactions } from './TransactionsProvider';
 import { logError, addBreadcrumb } from '../services/sentry';
 
+// Special ID for the default "General Savings" goal
+export const GENERAL_SAVINGS_GOAL_ID = 'general-savings-goal';
+
 export type GoalsError = {
   message: string;
   code?: string;
@@ -310,8 +313,22 @@ export const GoalsProvider: React.FC<{
   }, [goals]);
 
   const getGoalById = useCallback((id: string) => {
+    // Return virtual "General Savings" goal if requested
+    if (id === GENERAL_SAVINGS_GOAL_ID) {
+      return {
+        id: GENERAL_SAVINGS_GOAL_ID,
+        name: 'General Savings',
+        targetAmount: 0,
+        currentAmount: 0,
+        currency: settings.currency,
+        emoji: '💾',
+        status: 'active' as GoalStatus,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as Goal;
+    }
     return goals.find((goal) => goal.id === id) || null;
-  }, [goals]);
+  }, [goals, settings.currency]);
 
   const createGoal = useCallback(async (input: {
     name: string;

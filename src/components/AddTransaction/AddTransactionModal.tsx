@@ -208,11 +208,9 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
-    // Saved transactions must be linked to a goal to update its progress
-    if (type === 'saved' && !goalId) {
-      setError('Please select a goal to link this saving');
-      return;
-    }
+    // Saved transactions must be linked to a goal (including General Savings)
+    // This check is now handled by the goal selection step, so we can allow saved transactions
+    // The goalId will be either a specific goal ID or GENERAL_SAVINGS_GOAL_ID
 
     setIsSaving(true);
     setError(null);

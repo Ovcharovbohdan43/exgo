@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ViewStyle } from 'react-native';
 import { Card } from '../layout';
 import { useThemeStyles } from '../../theme/ThemeProvider';
-import { useGoals } from '../../state/GoalsProvider';
+import { useGoals, GENERAL_SAVINGS_GOAL_ID } from '../../state/GoalsProvider';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../../utils/format';
 import { AddGoalModal } from '../AddGoalModal';
@@ -49,9 +49,9 @@ export const GoalSelectionStep: React.FC<GoalSelectionStepProps> = ({
         {t('addTransaction.selectGoal', { defaultValue: 'Select Goal (Optional)' })}
       </Text>
 
-      {/* Option: No Goal */}
+      {/* Option: No Goal (General Savings) */}
       <TouchableOpacity
-        onPress={() => onSelect(null)}
+        onPress={() => onSelect(GENERAL_SAVINGS_GOAL_ID)}
         activeOpacity={0.7}
         style={{ marginBottom: 12 }}
       >
@@ -61,9 +61,9 @@ export const GoalSelectionStep: React.FC<GoalSelectionStepProps> = ({
           style={[
             styles.goalCard,
             {
-              backgroundColor: selectedGoalId === null ? theme.colors.accent + '20' : theme.colors.surface,
-              borderColor: selectedGoalId === null ? theme.colors.accent : theme.colors.border,
-              borderWidth: selectedGoalId === null ? 2 : 1,
+              backgroundColor: selectedGoalId === GENERAL_SAVINGS_GOAL_ID ? theme.colors.accent + '20' : theme.colors.surface,
+              borderColor: selectedGoalId === GENERAL_SAVINGS_GOAL_ID ? theme.colors.accent : theme.colors.border,
+              borderWidth: selectedGoalId === GENERAL_SAVINGS_GOAL_ID ? 2 : 1,
             },
           ]}
         >
