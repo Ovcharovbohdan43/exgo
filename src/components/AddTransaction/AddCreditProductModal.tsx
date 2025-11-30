@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useThemeStyles } from '../../theme/ThemeProvider';
-import { CreditProductType } from '../../types';
+import { CreditType } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { useCreditProducts } from '../../state/CreditProductsProvider';
 import { useSettings } from '../../state/SettingsProvider';
@@ -28,33 +28,30 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
   const isEditMode = !!productToEdit;
   
   const [name, setName] = useState('');
-  const [principal, setPrincipal] = useState('');
-  const [apr, setApr] = useState('');
-  const [creditType, setCreditType] = useState<CreditProductType>('credit_card');
-  const [monthlyMinimumPayment, setMonthlyMinimumPayment] = useState('');
+  const [creditLimit, setCreditLimit] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [creditType, setCreditType] = useState<CreditType>('credit_card');
+  const [minimumPayment, setMinimumPayment] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [loanTermMonths, setLoanTermMonths] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   // Pre-fill form when editing
   React.useEffect(() => {
     if (visible && productToEdit) {
       setName(productToEdit.name);
-      setPrincipal(String(productToEdit.principal));
-      setApr(String(productToEdit.apr));
+      setCreditLimit(String(productToEdit.creditLimit));
+      setInterestRate(productToEdit.interestRate ? String(productToEdit.interestRate) : '');
       setCreditType(productToEdit.creditType);
-      setMonthlyMinimumPayment(productToEdit.monthlyMinimumPayment ? String(productToEdit.monthlyMinimumPayment) : '');
+      setMinimumPayment(productToEdit.minimumPayment ? String(productToEdit.minimumPayment) : '');
       setDueDate(productToEdit.dueDate ? String(productToEdit.dueDate) : '');
-      setLoanTermMonths(productToEdit.loanTermMonths ? String(productToEdit.loanTermMonths) : '');
     } else if (visible && !productToEdit) {
       // Reset form for new product
       setName('');
-      setPrincipal('');
-      setApr('');
+      setCreditLimit('');
+      setInterestRate('');
       setCreditType('credit_card');
-      setMonthlyMinimumPayment('');
+      setMinimumPayment('');
       setDueDate('');
-      setLoanTermMonths('');
     }
   }, [visible, productToEdit]);
 
@@ -66,15 +63,15 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
       return;
     }
 
-    const principalAmount = parseFloat(principal);
-    if (isNaN(principalAmount) || principalAmount <= 0) {
-      Alert.alert(t('alerts.error'), 'Principal amount must be greater than 0');
+    const creditLimitAmount = parseFloat(creditLimit);
+    if (isNaN(creditLimitAmount) || creditLimitAmount <= 0) {
+      Alert.alert(t('alerts.error'), 'Credit limit must be greater than 0');
       return;
     }
 
-    const aprValue = parseFloat(apr);
-    if (isNaN(aprValue) || aprValue < 0) {
-      Alert.alert(t('alerts.error'), 'APR must be a non-negative number');
+    const interestRateValue = interestRate ? parseFloat(interestRate) : undefined;
+    if (interestRate && (isNaN(interestRateValue!) || interestRateValue! < 0)) {
+      Alert.alert(t('alerts.error'), 'Interest rate must be a non-negative number');
       return;
     }
 
@@ -84,36 +81,33 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
         // Update existing product
         await updateCreditProduct(productToEdit.id, {
           name: trimmedName,
-          principal: principalAmount,
-          apr: aprValue,
+          principal: creditLimitAmount,
+          apr: interestRateValue || 0,
           creditType,
-          monthlyMinimumPayment: monthlyMinimumPayment ? parseFloat(monthlyMinimumPayment) : undefined,
+          monthlyMinimumPayment: minimumPayment ? parseFloat(minimumPayment) : undefined,
           dueDate: dueDate ? parseInt(dueDate, 10) : undefined,
-          loanTermMonths: loanTermMonths ? parseInt(loanTermMonths, 10) : undefined,
         });
         onProductCreated(productToEdit.id);
       } else {
         // Create new product
         const product = await createCreditProduct({
           name: trimmedName,
-          principal: principalAmount,
-          apr: aprValue,
+          principal: creditLimitAmount,
+          apr: interestRateValue || 0,
           creditType,
-          monthlyMinimumPayment: monthlyMinimumPayment ? parseFloat(monthlyMinimumPayment) : undefined,
+          monthlyMinimumPayment: minimumPayment ? parseFloat(minimumPayment) : undefined,
           dueDate: dueDate ? parseInt(dueDate, 10) : undefined,
-          loanTermMonths: loanTermMonths ? parseInt(loanTermMonths, 10) : undefined,
         });
         onProductCreated(product.id);
       }
 
       // Reset form
       setName('');
-      setPrincipal('');
-      setApr('');
+      setCreditLimit('');
+      setInterestRate('');
       setCreditType('credit_card');
-      setMonthlyMinimumPayment('');
+      setMinimumPayment('');
       setDueDate('');
-      setLoanTermMonths('');
       
       onClose();
     } catch (error) {
@@ -125,12 +119,11 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
 
   const handleClose = () => {
     setName('');
-    setPrincipal('');
-    setApr('');
+    setCreditLimit('');
+    setInterestRate('');
     setCreditType('credit_card');
-    setMonthlyMinimumPayment('');
+    setMinimumPayment('');
     setDueDate('');
-    setLoanTermMonths('');
     onClose();
   };
 
@@ -244,8 +237,8 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
                   Initial Debt Amount ({settings.currency}) *
                 </Text>
                 <TextInput
-                  value={principal}
-                  onChangeText={setPrincipal}
+                  value={creditLimit}
+                  onChangeText={setCreditLimit}
                   placeholder="0.00"
                   placeholderTextColor={theme.colors.textMuted}
                   keyboardType="decimal-pad"
@@ -275,8 +268,8 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
                   APR (%) *
                 </Text>
                 <TextInput
-                  value={apr}
-                  onChangeText={setApr}
+                  value={interestRate}
+                  onChangeText={setInterestRate}
                   placeholder="e.g., 18.5"
                   placeholderTextColor={theme.colors.textMuted}
                   keyboardType="decimal-pad"
@@ -306,7 +299,7 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
                   Credit Type *
                 </Text>
                 <View style={styles.typeContainer}>
-                  {(['credit_card', 'fixed_loan', 'installment'] as CreditProductType[]).map((type) => (
+                  {(['credit_card', 'loan', 'installment'] as CreditType[]).map((type) => (
                     <TouchableOpacity
                       key={type}
                       onPress={() => setCreditType(type)}
@@ -336,13 +329,13 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
                           },
                         ]}
                       >
-                        {type === 'credit_card' ? 'Credit Card' : type === 'fixed_loan' ? 'Fixed Loan' : 'Installment'}
+                        {type === 'credit_card' ? 'Credit Card' : type === 'loan' ? 'Loan' : 'Installment'}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                {creditType === 'fixed_loan' && (
+                {creditType === 'loan' && (
                   <>
                     <Text
                       style={[
@@ -359,8 +352,6 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
                       Loan Term (months)
                     </Text>
                     <TextInput
-                      value={loanTermMonths}
-                      onChangeText={setLoanTermMonths}
                       placeholder="e.g., 12, 24, 36"
                       placeholderTextColor={theme.colors.textMuted}
                       keyboardType="number-pad"
@@ -392,8 +383,8 @@ export const AddCreditProductModal: React.FC<AddCreditProductModalProps> = ({
                   Monthly Minimum Payment ({settings.currency})
                 </Text>
                 <TextInput
-                  value={monthlyMinimumPayment}
-                  onChangeText={setMonthlyMinimumPayment}
+                  value={minimumPayment}
+                  onChangeText={setMinimumPayment}
                   placeholder="0.00"
                   placeholderTextColor={theme.colors.textMuted}
                   keyboardType="decimal-pad"

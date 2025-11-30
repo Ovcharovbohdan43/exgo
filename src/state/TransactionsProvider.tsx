@@ -29,6 +29,7 @@ type TransactionsContextValue = {
     paidByCreditProductId?: string;
     goalId?: string;
     createdAt?: string;
+    recurringTransactionId?: string;
   }) => Promise<void>;
   updateTransaction: (id: string, input: {
     amount: number;
@@ -38,6 +39,7 @@ type TransactionsContextValue = {
     paidByCreditProductId?: string;
     goalId?: string;
     createdAt?: string;
+    recurringTransactionId?: string;
   }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   resetTransactions: () => Promise<void>;
@@ -363,7 +365,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const addTransaction: TransactionsContextValue['addTransaction'] = useCallback(
-    async ({ amount, type, category, creditProductId, paidByCreditProductId, goalId, createdAt }) => {
+    async ({ amount, type, category, creditProductId, paidByCreditProductId, goalId, createdAt, recurringTransactionId }) => {
       const tx: Transaction = {
         id: uuidv4(),
         amount,
@@ -373,7 +375,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         paidByCreditProductId,
         goalId,
         createdAt: createdAt ?? new Date().toISOString(),
+        recurringTransactionId,
       };
+      
+      if (recurringTransactionId) {
+        console.log('[TransactionsProvider] Adding transaction with recurringTransactionId:', {
+          transactionId: tx.id,
+          recurringTransactionId: tx.recurringTransactionId,
+          category: tx.category,
+        });
+      }
       
       // Determine which month this transaction belongs to
       const txDate = new Date(tx.createdAt);
@@ -463,7 +474,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const updateTransaction: TransactionsContextValue['updateTransaction'] = useCallback(
-    async (id: string, { amount, type, category, creditProductId, paidByCreditProductId, goalId, createdAt }) => {
+    async (id: string, { amount, type, category, creditProductId, paidByCreditProductId, goalId, createdAt, recurringTransactionId }) => {
       // Use functional update to ensure we have the latest state
       let next: Record<string, Transaction[]>;
       let foundMonthKey: string | null = null;
@@ -494,6 +505,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 paidByCreditProductId,
                 goalId,
                 createdAt: createdAt ?? tx.createdAt,
+                recurringTransactionId: recurringTransactionId !== undefined ? recurringTransactionId : tx.recurringTransactionId,
               }
             : tx
         );

@@ -473,6 +473,7 @@
     "frequency": "Frequency",
     "frequency.daily": "Daily",
     "frequency.weekly": "Weekly",
+    "frequency.biweekly": "Every 2 weeks",
     "frequency.monthly": "Monthly",
     "frequency.yearly": "Yearly",
     "startDate": "Start Date",
@@ -486,6 +487,8 @@
     "upcoming": "Upcoming",
     "scheduledFor": "Scheduled for",
     "daysUntil": "{{days}} days until",
+    "scheduledIn": "Scheduled in {{days}} days",
+    "scheduledInDays": "Scheduled in {{days}} days",
     "today": "Today",
     "tomorrow": "Tomorrow"
   },

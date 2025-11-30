@@ -473,6 +473,7 @@
     "frequency": "Частота",
     "frequency.daily": "Щодня",
     "frequency.weekly": "Щотижня",
+    "frequency.biweekly": "Кожні 2 тижні",
     "frequency.monthly": "Щомісяця",
     "frequency.yearly": "Щороку",
     "startDate": "Дата початку",
@@ -486,6 +487,8 @@
     "upcoming": "Майбутні",
     "scheduledFor": "Заплановано на",
     "daysUntil": "{{days}} днів до",
+    "scheduledIn": "Заплановано через {{days}} днів",
+    "scheduledInDays": "Заплановано через {{days}} днів",
     "today": "Сьогодні",
     "tomorrow": "Завтра"
   },

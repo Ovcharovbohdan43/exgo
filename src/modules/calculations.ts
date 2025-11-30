@@ -23,7 +23,16 @@ export const filterByMonth = (transactions: Transaction[], monthKey: string): Tr
 
 export const calculateTotals = (transactions: Transaction[], monthlyIncome: number): Totals => {
   // transactions are already filtered for the selected month
-  const monthly = transactions;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
+  
+  // Filter out transactions with future dates - they shouldn't affect balance until the date arrives
+  // This ensures scheduled transactions don't affect balance until they actually occur
+  const monthly = transactions.filter((tx) => {
+    const txDate = new Date(tx.createdAt);
+    txDate.setHours(0, 0, 0, 0); // Reset time to start of day
+    return txDate <= now; // Only include transactions that have occurred (today or earlier)
+  });
 
   // Expenses include both 'expense' and 'credit' transactions
   // Credit transactions are payments made to pay off debt, so they count as expenses

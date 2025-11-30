@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ViewStyle, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ViewStyle, TouchableOpacity, ScrollView, TextInput, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card } from '../layout';
 import { useThemeStyles } from '../../theme/ThemeProvider';
 import { useSettings } from '../../state/SettingsProvider';
 import { formatCurrency } from '../../utils/format';
 import { formatDate } from '../../utils/date';
-import { TransactionType } from '../../types';
+import { TransactionType, RecurringFrequency } from '../../types';
 import { getCategoryEmoji } from '../../utils/categoryEmojis';
 import { useTranslation } from 'react-i18next';
 import { getLocalizedCategory } from '../../utils/categoryLocalization';
@@ -26,7 +27,11 @@ type ConfirmStepProps = {
   createdAt: string;
   scheduleType?: TransactionScheduleType;
   onScheduleTypeChange?: (scheduleType: TransactionScheduleType) => void;
-  onOpenRecurringModal?: () => void;
+  onRecurringDataChange?: (data: {
+    name: string;
+    frequency: RecurringFrequency;
+    startDate: string;
+  } | null) => void;
   style?: ViewStyle;
 };
 
@@ -46,7 +51,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   createdAt,
   scheduleType = 'standard',
   onScheduleTypeChange,
-  onOpenRecurringModal,
+  onRecurringDataChange,
   style,
 }) => {
   const theme = useThemeStyles();
@@ -64,6 +69,80 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
   const creditCards = getActiveCreditProducts().filter((product) => product.creditType === 'credit_card');
   const [showCreditCardSelector, setShowCreditCardSelector] = useState(false);
   const [showScheduleTypeSelector, setShowScheduleTypeSelector] = useState(false);
+  
+  // Recurring transaction settings (only for scheduled transactions)
+  const [recurringName, setRecurringName] = useState(category || '');
+  const [recurringFrequency, setRecurringFrequency] = useState<RecurringFrequency>('monthly');
+  const [recurringStartDate, setRecurringStartDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1); // Default to tomorrow
+    return date.toISOString().split('T')[0];
+  });
+  const [showFrequencySelector, setShowFrequencySelector] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Debug: Log when scheduleType changes
+  useEffect(() => {
+    console.log('[ConfirmStep] scheduleType changed:', scheduleType);
+  }, [scheduleType]);
+  
+  // Update recurring data when settings change
+  // Use ref to track previous values and avoid infinite loops
+  const prevDataRef = React.useRef<{
+    scheduleType: TransactionScheduleType;
+    recurringName: string;
+    recurringFrequency: RecurringFrequency;
+    recurringStartDate: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const currentData = {
+      scheduleType,
+      recurringName: recurringName.trim(),
+      recurringFrequency,
+      recurringStartDate,
+    };
+
+    // Check if data actually changed
+    if (prevDataRef.current &&
+        prevDataRef.current.scheduleType === currentData.scheduleType &&
+        prevDataRef.current.recurringName === currentData.recurringName &&
+        prevDataRef.current.recurringFrequency === currentData.recurringFrequency &&
+        prevDataRef.current.recurringStartDate === currentData.recurringStartDate) {
+      return; // No changes, skip update
+    }
+
+    prevDataRef.current = currentData;
+
+    if (scheduleType === 'scheduled' && recurringName.trim() && recurringStartDate) {
+      // Validate date format
+      const date = new Date(recurringStartDate);
+      if (!isNaN(date.getTime())) {
+        onRecurringDataChange?.({
+          name: recurringName.trim(),
+          frequency: recurringFrequency,
+          startDate: date.toISOString(),
+        });
+      } else {
+        onRecurringDataChange?.(null);
+      }
+    } else {
+      onRecurringDataChange?.(null);
+    }
+  }, [scheduleType, recurringName, recurringFrequency, recurringStartDate]);
+  
+  // Initialize recurring name when switching to scheduled
+  useEffect(() => {
+    if (scheduleType === 'scheduled' && !recurringName.trim()) {
+      setRecurringName(category || '');
+    } else if (scheduleType === 'standard') {
+      setRecurringName(category || '');
+      setRecurringFrequency('monthly');
+      const date = new Date();
+      date.setDate(date.getDate() + 1);
+      setRecurringStartDate(date.toISOString().split('T')[0]);
+    }
+  }, [scheduleType, category]);
 
   // Debug: Log received props
   React.useEffect(() => {
@@ -429,7 +508,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
                           },
                         ]}
                       >
-                        {formatCurrency(card.remainingBalance, currency)} balance
+                        {formatCurrency(card.currentBalance, currency)} balance
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -484,6 +563,7 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
                 <ScrollView style={styles.creditCardList} nestedScrollEnabled>
                   <TouchableOpacity
                     onPress={() => {
+                      console.log('[ConfirmStep] Setting scheduleType to standard');
                       onScheduleTypeChange?.('standard');
                       setShowScheduleTypeSelector(false);
                     }}
@@ -518,17 +598,9 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
                   
                   <TouchableOpacity
                     onPress={() => {
-                      const wasStandard = scheduleType === 'standard';
+                      console.log('[ConfirmStep] Setting scheduleType to scheduled');
                       onScheduleTypeChange?.('scheduled');
                       setShowScheduleTypeSelector(false);
-                      // Open recurring transaction modal when Scheduled is selected (only if it wasn't already scheduled)
-                      if (wasStandard && onOpenRecurringModal) {
-                        // Small delay to ensure state updates
-                        setTimeout(() => {
-                          console.log('[ConfirmStep] Opening recurring transaction modal');
-                          onOpenRecurringModal();
-                        }, 150);
-                      }
                     }}
                     style={[
                       styles.creditCardOption,
@@ -560,6 +632,213 @@ export const ConfirmStep: React.FC<ConfirmStepProps> = ({
                   </TouchableOpacity>
                 </ScrollView>
               </View>
+            )}
+            
+            {/* Recurring Transaction Settings (shown when scheduled is selected) */}
+            {scheduleType === 'scheduled' && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+                
+                {/* Transaction Name */}
+                <View style={styles.recurringSettingRow}>
+                  <Text
+                    style={[
+                      styles.label,
+                      {
+                        color: theme.colors.textSecondary,
+                        fontSize: theme.typography.fontSize.sm,
+                        fontWeight: theme.typography.fontWeight.medium,
+                        marginBottom: theme.spacing.xs,
+                      },
+                    ]}
+                  >
+                    {t('recurringTransactions.name', { defaultValue: 'Transaction Name' })}
+                    <Text style={{ color: theme.colors.danger }}> *</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.recurringInput,
+                      {
+                        backgroundColor: theme.colors.background,
+                        borderColor: theme.colors.border,
+                        color: theme.colors.textPrimary,
+                        fontSize: theme.typography.fontSize.md,
+                      },
+                    ]}
+                    value={recurringName}
+                    onChangeText={setRecurringName}
+                    placeholder={t('recurringTransactions.namePlaceholder', { defaultValue: 'e.g., Netflix' })}
+                    placeholderTextColor={theme.colors.textMuted}
+                  />
+                </View>
+                
+                {/* Frequency */}
+                <View style={styles.recurringSettingRow}>
+                  <Text
+                    style={[
+                      styles.label,
+                      {
+                        color: theme.colors.textSecondary,
+                        fontSize: theme.typography.fontSize.sm,
+                        fontWeight: theme.typography.fontWeight.medium,
+                        marginBottom: theme.spacing.xs,
+                      },
+                    ]}
+                  >
+                    {t('recurringTransactions.frequency', { defaultValue: 'Frequency' })}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowFrequencySelector(!showFrequencySelector)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.frequencySelector,
+                      {
+                        backgroundColor: theme.colors.background,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        {
+                          color: theme.colors.textPrimary,
+                          fontSize: theme.typography.fontSize.md,
+                          fontWeight: theme.typography.fontWeight.medium,
+                        },
+                      ]}
+                    >
+                      {(() => {
+                        const freq = recurringFrequency;
+                        if (freq === 'weekly' as RecurringFrequency) {
+                          return t(`recurringTransactions.frequency.weekly`, { defaultValue: 'Weekly' });
+                        } else if (freq === ('biweekly' as RecurringFrequency)) {
+                          return t(`recurringTransactions.frequency.biweekly`, { defaultValue: 'Every 2 weeks' });
+                        } else if (freq === 'monthly' as RecurringFrequency) {
+                          return t(`recurringTransactions.frequency.monthly`, { defaultValue: 'Monthly' });
+                        } else if (freq === 'daily' as RecurringFrequency) {
+                          return t(`recurringTransactions.frequency.daily`, { defaultValue: 'Daily' });
+                        } else if (freq === 'yearly' as RecurringFrequency) {
+                          return t(`recurringTransactions.frequency.yearly`, { defaultValue: 'Yearly' });
+                        }
+                        return t(`recurringTransactions.frequency.monthly`, { defaultValue: 'Monthly' });
+                      })()}
+                    </Text>
+                    <Text style={{ color: theme.colors.textMuted, marginLeft: 8 }}>▼</Text>
+                  </TouchableOpacity>
+                  
+                  {showFrequencySelector && (
+                    <View style={styles.frequencyOptions}>
+                      {(['weekly', 'biweekly', 'monthly'] as RecurringFrequency[]).map((freq) => (
+                        <TouchableOpacity
+                          key={freq}
+                          onPress={() => {
+                            setRecurringFrequency(freq);
+                            setShowFrequencySelector(false);
+                          }}
+                          style={[
+                            styles.frequencyOption,
+                            {
+                              backgroundColor: recurringFrequency === freq 
+                                ? theme.colors.accent + '15' 
+                                : theme.colors.surface,
+                              borderColor: recurringFrequency === freq 
+                                ? theme.colors.accent 
+                                : theme.colors.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.frequencyOptionText,
+                              {
+                                color: recurringFrequency === freq 
+                                  ? theme.colors.accent 
+                                  : theme.colors.textPrimary,
+                                fontWeight: recurringFrequency === freq 
+                                  ? theme.typography.fontWeight.semibold 
+                                  : theme.typography.fontWeight.medium,
+                              },
+                            ]}
+                          >
+                            {(() => {
+                              const frequency = freq;
+                              if (frequency === ('weekly' as RecurringFrequency)) {
+                                return t(`recurringTransactions.frequency.weekly`, { defaultValue: 'Weekly' });
+                              } else if (frequency === ('biweekly' as RecurringFrequency)) {
+                                return t(`recurringTransactions.frequency.biweekly`, { defaultValue: 'Every 2 weeks' });
+                              } else if (frequency === ('monthly' as RecurringFrequency)) {
+                                return t(`recurringTransactions.frequency.monthly`, { defaultValue: 'Monthly' });
+                              }
+                              return t(`recurringTransactions.frequency.monthly`, { defaultValue: 'Monthly' });
+                            })()}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+                
+                {/* Start Date */}
+                <View style={styles.recurringSettingRow}>
+                  <Text
+                    style={[
+                      styles.label,
+                      {
+                        color: theme.colors.textSecondary,
+                        fontSize: theme.typography.fontSize.sm,
+                        fontWeight: theme.typography.fontWeight.medium,
+                        marginBottom: theme.spacing.xs,
+                      },
+                    ]}
+                  >
+                    {t('recurringTransactions.startDate', { defaultValue: 'Start Date' })}
+                    <Text style={{ color: theme.colors.danger }}> *</Text>
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowDatePicker(true)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.recurringInput,
+                      {
+                        backgroundColor: theme.colors.background,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        {
+                          color: theme.colors.textPrimary,
+                          fontSize: theme.typography.fontSize.md,
+                        },
+                      ]}
+                    >
+                      {recurringStartDate || 'YYYY-MM-DD'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={new Date(recurringStartDate || new Date().toISOString())}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, selectedDate) => {
+                        if (Platform.OS === 'android') {
+                          setShowDatePicker(false);
+                        }
+                        if (event.type === 'set' && selectedDate) {
+                          setRecurringStartDate(selectedDate.toISOString().split('T')[0]);
+                          if (Platform.OS === 'ios') {
+                            setShowDatePicker(false);
+                          }
+                        } else if (event.type === 'dismissed') {
+                          setShowDatePicker(false);
+                        }
+                      }}
+                      minimumDate={new Date()}
+                    />
+                  )}
+                </View>
+              </>
             )}
           </>
         )}
@@ -651,6 +930,39 @@ const styles = StyleSheet.create({
   },
   creditCardBalance: {
     marginTop: 4,
+  },
+  recurringSettingRow: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  recurringInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 44,
+    marginTop: 4,
+  },
+  frequencySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 44,
+    marginTop: 4,
+  },
+  frequencyOptions: {
+    marginTop: 8,
+  },
+  frequencyOption: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  frequencyOptionText: {
+    fontSize: 14,
   },
 });
 

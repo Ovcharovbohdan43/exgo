@@ -1,4 +1,5 @@
-import { Transaction, SupportedLanguage } from '../types';
+import { Transaction } from '../types';
+import { SupportedLanguage } from '../i18n';
 import { calculateTotals, categoryBreakdown } from '../modules/calculations';
 import { formatCurrency, getCurrencySymbol } from './format';
 import { parseMonthKey } from './month';

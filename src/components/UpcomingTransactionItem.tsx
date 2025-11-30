@@ -33,8 +33,8 @@ export const UpcomingTransactionItem: React.FC<UpcomingTransactionItemProps> = (
     } else if (upcomingTransaction.daysUntil === 1) {
       return t('recurringTransactions.tomorrow', { defaultValue: 'Tomorrow' });
     } else {
-      return t('recurringTransactions.daysUntil', {
-        defaultValue: '{{days}} days until',
+      return t('recurringTransactions.scheduledInDays', {
+        defaultValue: 'Scheduled in {{days}} days',
         days: upcomingTransaction.daysUntil,
       });
     }

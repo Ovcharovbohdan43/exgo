@@ -74,6 +74,9 @@ const calculateNextDueDate = (
     case 'weekly':
       current.setDate(current.getDate() + 7);
       break;
+    case 'biweekly':
+      current.setDate(current.getDate() + 14);
+      break;
     case 'monthly':
       current.setMonth(current.getMonth() + 1);
       // Handle edge case: if start date is 31st and next month has fewer days
@@ -240,18 +243,17 @@ export const RecurringTransactionsProvider: React.FC<{ children: React.ReactNode
           });
         }
       } else {
-        // Calculate next due date
-        const nextDue = calculateNextDueDate(rt.nextDueDate, rt.frequency, rt.startDate);
-        if (isWithin3Days(nextDue)) {
+        // Check if nextDueDate is within 3 days
+        if (isWithin3Days(rt.nextDueDate)) {
           upcoming.push({
-            id: `upcoming-${rt.id}-${nextDue}`,
+            id: `upcoming-${rt.id}-${rt.nextDueDate}`,
             recurringTransactionId: rt.id,
             name: rt.name,
             type: rt.type,
             amount: rt.amount,
             category: rt.category,
-            scheduledDate: nextDue,
-            daysUntil: daysUntil(nextDue),
+            scheduledDate: rt.nextDueDate,
+            daysUntil: daysUntil(rt.nextDueDate),
             creditProductId: rt.creditProductId,
             paidByCreditProductId: rt.paidByCreditProductId,
             goalId: rt.goalId,
@@ -379,6 +381,15 @@ export const RecurringTransactionsProvider: React.FC<{ children: React.ReactNode
     goalId?: string;
     note?: string;
   }): Promise<RecurringTransaction> => {
+    console.log('[RecurringTransactionsProvider] Creating recurring transaction:', {
+      name: input.name,
+      type: input.type,
+      amount: input.amount,
+      category: input.category,
+      frequency: input.frequency,
+      startDate: input.startDate,
+    });
+    
     const now = new Date().toISOString();
     const nextDueDate = input.startDate;
     
@@ -407,6 +418,11 @@ export const RecurringTransactionsProvider: React.FC<{ children: React.ReactNode
 
     try {
       await persist(updated);
+      console.log('[RecurringTransactionsProvider] Recurring transaction created successfully:', {
+        id: newRecurring.id,
+        name: newRecurring.name,
+        totalRecurringTransactions: updated.length,
+      });
       addBreadcrumb('Recurring transaction created', 'storage', 'info', {
         recurringTransactionId: newRecurring.id,
         name: newRecurring.name,

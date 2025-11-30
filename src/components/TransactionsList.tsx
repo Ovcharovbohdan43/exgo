@@ -15,6 +15,7 @@ import { getTransactionAccessibilityLabel, BUTTON_HIT_SLOP } from '../utils/acce
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from './states';
 import { getLocalizedCategory } from '../utils/categoryLocalization';
+import { UpcomingTransactionItem } from './UpcomingTransactionItem';
 
 type TransactionsListProps = {
   transactions: Transaction[];
@@ -46,6 +47,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   const { settings } = useSettings();
   const { getCreditProductById, creditProducts } = useCreditProducts();
   const { getGoalById } = useGoals();
+  const { getRecurringTransactionById } = useRecurringTransactions();
   const { t } = useTranslation();
   const customCategories = settings.customCategories || [];
   
@@ -67,6 +69,29 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   const goal = transaction.type === 'saved' && transaction.goalId 
     ? getGoalById(transaction.goalId) 
     : null;
+  
+  // Get recurring transaction name if this transaction was created from a recurring schedule
+  const recurringTransaction = React.useMemo(() => {
+    if (!transaction.recurringTransactionId) {
+      return null;
+    }
+    const found = getRecurringTransactionById(transaction.recurringTransactionId);
+    if (found) {
+      console.log('[TransactionItem] Found recurring transaction:', {
+        transactionId: transaction.id,
+        recurringTransactionId: transaction.recurringTransactionId,
+        recurringName: found.name,
+        category: transaction.category,
+      });
+    } else {
+      console.log('[TransactionItem] Recurring transaction NOT found:', {
+        transactionId: transaction.id,
+        recurringTransactionId: transaction.recurringTransactionId,
+        category: transaction.category,
+      });
+    }
+    return found;
+  }, [transaction.recurringTransactionId, transaction.id, transaction.category, getRecurringTransactionById]);
   
   // Debug: Log payment method info
   useEffect(() => {
@@ -168,6 +193,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   };
 
   const typeColor = getTypeColor();
+  
+  // Check if this transaction has a future date (scheduled transaction that hasn't occurred yet)
+  // These should be displayed semi-transparent and not affect balance
+  const transactionDate = new Date(transaction.createdAt);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
+  transactionDate.setHours(0, 0, 0, 0); // Reset time to start of day
+  const isFutureTransaction = transactionDate > now;
 
   const content = (
     <View style={styles.container}>
@@ -199,6 +232,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
               >
                 {transaction.type === 'credit' && creditProduct
                   ? creditProduct.name
+                  : recurringTransaction
+                  ? recurringTransaction.name
                   : (transaction.category ? getLocalizedCategory(transaction.category) : t('transactions.uncategorized'))}
               </Text>
               {paidByCreditCard && (
@@ -279,7 +314,16 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction, currency
   );
 
   const cardContent = (
-    <Card variant="outlined" padding="md" style={styles.transactionCard}>
+    <Card 
+      variant="outlined" 
+      padding="md" 
+      style={[
+        styles.transactionCard,
+        isFutureTransaction && {
+          opacity: 0.6, // Semi-transparent for future scheduled transactions
+        },
+      ]}
+    >
       {onPress ? (
         <TouchableOpacity 
           onPress={onPress} 
@@ -461,11 +505,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
           data: upcoming,
         });
       });
-      // Add separator after upcoming section
-      items.push({
-        type: 'header',
-        data: t('transactions.recent', { defaultValue: 'Recent Transactions' }),
-      });
+      // No separator header after upcoming section - transactions will follow directly
     }
     
     for (const group of groupedTransactions) {

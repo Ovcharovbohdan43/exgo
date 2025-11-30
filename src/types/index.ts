@@ -15,7 +15,7 @@ export interface Transaction {
 // Recurring Transactions Types
 export type RecurringTransactionType = 'subscription' | 'rent' | 'salary' | 'bill' | 'other';
 
-export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
 export type RecurringTransactionStatus = 'active' | 'paused' | 'completed';
 
@@ -48,182 +48,111 @@ export interface UpcomingTransaction {
   amount: number;
   category?: string;
   scheduledDate: string; // ISO string - when this transaction will occur
-  daysUntil: number; // Days until the transaction occurs
-  creditProductId?: string;
-  paidByCreditProductId?: string;
-  goalId?: string;
-}
-
-export type ThemePreference = 'light' | 'dark' | 'system';
-
-export interface CustomCategory {
-  name: string;
-  emoji: string;
-  type: 'expense' | 'income'; // Type of transaction this category belongs to
-}
-
-export type SupportedLanguage = 'en' | 'uk';
-
-export interface UserSettings {
-  currency: string;
-  monthlyIncome: number;
-  isOnboarded: boolean;
-  firstMonthKey?: string; // First month when user started using the app (YYYY-MM)
-  themePreference?: ThemePreference; // Theme preference: 'light', 'dark', or 'system'
-  language?: SupportedLanguage; // Interface language: 'en' (English) or 'uk' (Ukrainian)
-  customCategories?: CustomCategory[]; // User-defined categories for expenses and income
-  // Security settings
-  enableBiometric?: boolean; // Enable biometric authentication (Face ID, Touch ID, Fingerprint)
-  enablePIN?: boolean; // Enable PIN code authentication
-  pin?: string; // Stored PIN (should be hashed in production)
-}
-
-export type NotificationType = 
-  | 'monthly_start_high_spending' 
-  | 'budget_warning' 
-  | 'overspending' 
-  | 'achievement' 
-  | 'negative_balance'
-  | 'overspending_50_percent'
-  | 'large_expense_spike'
-  | 'low_balance_20_percent'
-  | 'mini_budget_warning'
-  | 'mini_budget_over'
-  | 'goal_completed';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  createdAt: string; // ISO string
-  read: boolean;
-  monthKey?: string; // Month key (YYYY-MM) this notification is related to
-}
-
-export type MiniBudgetStatus = 'active' | 'archived';
-
-export type MiniBudgetState = 'ok' | 'warning' | 'over';
-
-export interface MiniBudget {
-  id: string;
-  name: string;
-  month: string; // Month key (YYYY-MM)
-  currency: string;
-  limitAmount: number;
-  linkedCategoryIds: string[]; // Array of category names
-  status: MiniBudgetStatus;
-  createdAt: string; // ISO string
-  updatedAt: string; // ISO string
-  note?: string; // Optional note
-}
-
-export interface MiniBudgetMonthlyState {
-  budgetId: string;
-  month: string; // Month key (YYYY-MM)
-  spentAmount: number;
-  remaining: number; // limitAmount - spentAmount
-  pace: number; // spent / daysElapsed
-  forecast: number; // pace * daysInMonth
-  state: MiniBudgetState; // 'ok' | 'warning' | 'over'
-  daysElapsed: number;
-  daysInMonth: number;
-}
-
-export interface MiniBudgetWithState extends MiniBudget {
-  state: MiniBudgetMonthlyState;
+  daysUntil: number; // Number of days until the transaction occurs
 }
 
 // Credit Products Types
-export type CreditProductType = 'credit_card' | 'fixed_loan' | 'installment';
-
-export type CreditProductStatus = 'active' | 'paid_off' | 'overdue';
+export type CreditType = 'credit_card' | 'loan' | 'installment';
 
 export interface CreditProduct {
   id: string;
   name: string;
-  principal: number; // Initial debt amount
-  remainingBalance: number; // Current remaining balance
-  apr: number; // Annual percentage rate (%)
-  dailyInterestRate: number; // Calculated: apr / 100 / 365
-  creditType: CreditProductType;
-  loanTermMonths?: number; // For amortization loans
-  monthlyMinimumPayment?: number;
-  dueDate?: number; // Day of month (1-31)
-  accruedInterest: number; // Daily interest accrued
-  totalPaid: number; // Total amount paid so far
-  status: CreditProductStatus;
-  startDate: string; // ISO string
+  creditType: CreditType;
+  creditLimit: number; // Total credit limit
+  currentBalance: number; // Current balance (for credit cards) or remaining principal (for loans)
+  interestRate?: number; // Annual interest rate (optional)
+  minimumPayment?: number; // Minimum payment amount (for credit cards)
+  dueDate?: number; // Day of month when payment is due (for credit cards)
+  startDate: string; // ISO string - when the credit product was opened
+  endDate?: string; // ISO string - when the credit product will be closed (for loans/installments)
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
-  lastInterestCalculationDate: string; // ISO string - last date when interest was calculated
-  note?: string; // Optional note
 }
 
-// Goals Types
-export type GoalStatus = 'active' | 'completed' | 'archived';
-
+// Goal Types
 export interface Goal {
   id: string;
   name: string;
-  targetAmount: number; // Target amount to save
-  currentAmount: number; // Current amount saved (sum of related saved transactions)
-  currency: string;
-  emoji?: string; // Optional emoji for the goal
-  status: GoalStatus;
+  targetAmount: number;
+  currentAmount: number;
+  emoji?: string;
+  note?: string; // Optional note
+  createdAt: string; // ISO string
+  completedAt?: string; // ISO string - when the goal was completed
+  updatedAt: string; // ISO string
+}
+
+// Mini Budget Types
+export interface MiniBudget {
+  id: string;
+  name: string;
+  category: string;
+  limit: number;
+  month: string; // Month key in format YYYY-MM
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
-  completedAt?: string; // ISO string - when goal was completed
-  note?: string; // Optional note
+}
+
+export interface MiniBudgetState {
+  budgetId: string;
+  month: string; // Month key in format YYYY-MM
+  spent: number;
+  remaining: number;
+  status: 'ok' | 'warning' | 'over';
+  updatedAt: string; // ISO string
+}
+
+// Notification Types
+export interface Notification {
+  id: string;
+  type: 'large_expense' | 'budget_warning' | 'budget_exceeded' | 'goal_milestone' | 'goal_completed' | 'recurring_due';
+  title: string;
+  message: string;
+  transactionId?: string; // For transaction-related notifications
+  goalId?: string; // For goal-related notifications
+  budgetId?: string; // For budget-related notifications
+  recurringTransactionId?: string; // For recurring transaction notifications
+  createdAt: string; // ISO string
+  read: boolean;
+}
+
+// Settings Types
+export interface Settings {
+  currency: string;
+  monthlyIncome: number;
+  language: string;
+  themePreference: 'light' | 'dark' | 'system';
+  enablePIN: boolean;
+  enableBiometric: boolean;
+  pin?: string; // Hashed PIN
+  isOnboarded: boolean;
+  firstMonthKey?: string; // First month key in format YYYY-MM
+  customCategories?: Array<{
+    name: string;
+    emoji: string;
+    type?: 'expense' | 'income';
+  }>;
+}
+
+// Analytics Types
+export interface AnalyticsEvent {
+  name: string;
+  properties?: Record<string, any>;
+  timestamp: string; // ISO string
 }
 
 // Gamification Types
-export interface StreakState {
-  current: number; // Current consecutive days
-  best: number; // Best streak ever achieved
-  skipTokens: number; // Available skip tokens (1 per 14 days)
-  lastDate: string | null; // ISO string - last date with transaction logged
-}
-
-export type BadgeTier = 'bronze' | 'silver' | 'gold';
-export type BadgeCategory = 'logging' | 'goals' | 'budgets' | 'debts' | 'consistency';
-
 export interface Badge {
   id: string;
   name: string;
-  tier: BadgeTier;
-  category: BadgeCategory;
-  unlockedAt: string | null; // ISO string - when badge was unlocked, null if not unlocked
-  progress: number; // Current progress towards badge (0-100 or count)
-  target: number; // Target value to unlock badge
-  description?: string; // Optional description
+  description: string;
+  icon: string;
+  unlockedAt: string; // ISO string
 }
 
-export type ChallengeType = 'no_delivery' | 'groceries_reduction' | 'log_daily' | 'custom';
-export type ChallengeStatus = 'active' | 'completed' | 'failed' | 'expired';
-
-export interface Challenge {
-  id: string;
-  name: string;
-  type: ChallengeType;
-  start: string; // ISO string - challenge start date
-  end: string; // ISO string - challenge end date
-  status: ChallengeStatus;
-  progress: number; // Current progress (0-100)
-  target: number; // Target value to complete challenge
-  description?: string; // Optional description
-  rewardXP?: number; // XP reward on completion
-}
-
-export interface LevelState {
-  xp: number; // Current XP points
-  level: number; // Current level
-}
-
-export interface GamificationState {
-  streak: StreakState;
+export interface UserProgress {
+  level: number;
+  experience: number;
+  streak: number;
   badges: Badge[];
-  challenges: Challenge[];
-  level: LevelState;
-  lastUpdated: string; // ISO string - last time gamification state was updated
 }
